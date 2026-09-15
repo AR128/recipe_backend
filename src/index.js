@@ -3,7 +3,7 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 import express from "express";
 import "dotenv/config";
-import connectDB from "../config/db.js";
+import connectDB from "./config/db.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
