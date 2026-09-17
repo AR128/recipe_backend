@@ -9,11 +9,11 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGODB_URI);
     console.log(`✅ MongoDB Connected`);
 
-    const existingAdmin = await Admin.findOne({ email: process.env.EMAIL });
+    const existingAdmin = await Admin.findOne({ email: process.env.ADMIN_EMAIL});
     if (!existingAdmin) {
       const newAdmin = new Admin({
         username: process.env.ADMIN_USERNAME || "admin",
-        email: process.env.EMAIL,
+        email: process.env.ADMIN_EMAIL,
         password: await hashPassword(process.env.PASSWORD),
       });
 
