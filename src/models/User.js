@@ -1,7 +1,7 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose'
 
-const adminSchema = new mongoose.Schema(
-  {
+const userSchema =new mongoose.Schema(
+    {
     username: {
       type: String,
       required: [true, "Username is required"],
@@ -31,4 +31,5 @@ const adminSchema = new mongoose.Schema(
   }
 );
 
-export const Admin = mongoose.model("Admin", adminSchema);
+export const User = mongoose.model("Admin", userSchema);
+
