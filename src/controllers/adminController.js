@@ -1,54 +1,116 @@
-import { error } from "node:console";
-import { Admin } from "../models/Admin.js"
+import { Admin } from "../models/Admin.js";
 import bcrypt from "bcryptjs";
-import express from 'express'
+import jwt from "jsonwebtoken";
 
+// It's a good practice to store refresh tokens in a database,
+// but for simplicity, we'll just verify them via JWT signature.
+// In a production app, you might want a RefreshToken model or store in Redis.
 
+const generateAccessToken = (id, role) => {
+  return jwt.sign({ id: id.toString(), role }, process.env.ACCESS_TOKEN, {
+    expiresIn: "15m",
+  });
+};
 
+const generateRefreshToken = (id, role) => {
+  return jwt.sign({ id: id.toString(), role }, process.env.REFRESH_TOKEN, {
+    expiresIn: "7d",
+  });
+};
 
 export const loginAdmin = async (req, res) => {
-    try {
-        const {email, password, otp} = req.body;
+  try {
+    const { username, email, password } = req.body;
 
-        email = email.trim();
-        password = password.trim();
-        otp = otp.trim();
-
-        if(email == "" || password == "" || otp == ""){
-            res.status(401).json({ error: "Failed", message: "Empty input failed" });
-        }else if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email))
-            {
-            res.status(405).json({ error: "Failed", message: "Failed email format" });
-        } else if (password.length < 8) 
-            {
-            res.status(406).json({ error: "Failed", message: "Failed password format"});
-        }else if(!otp.length == 6)
-            {
-            res.status(407).json({error:"Failed", message: "Password must be 6 digits"});
-        }else{
-            const token = jwt.sign(
-            {id:user._id, role: user.role},
-            process.env.SECRET_KEY,
-        )
-
-        res.status(205).json({message:"Login Successful", token})
-        }
-    }catch (error){
-        console.log(error)
-        res.status(206).json({error:error.message})
+    if (!username || !email || !password) {
+      return res
+        .status(400)
+        .json({
+          error: "Failed",
+          message: "Username, email, and password are required",
+        });
     }
-}
 
-const sendOtpVerificationemail = async () => {
-    try {
-        const otp = `${Math.floor(100000 + Math.random() * 900000)}`;
+    const admin = await Admin.findOne({ username, email });
 
-
-        // mail options
-        const mailOptions = {
-            from: process.env.ADMIN_EMAIL,
-        }
-    } catch (error) {
-
+    if (!admin) {
+      return res
+        .status(401)
+        .json({ error: "Failed", message: "Invalid credentials" });
     }
-}
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res
+        .status(401)
+        .json({ error: "Failed", message: "Invalid credentials" });
+    }
+
+    // Generate tokens
+    const accessToken = generateAccessToken(admin._id, "admin");
+    const refreshToken = generateRefreshToken(admin._id, "admin");
+
+    // Set refresh token in httpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // true if in production
+      sameSite: "strict", // prevent CSRF
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.status(200).json({
+      message: "Login Successful",
+      accessToken,
+      // We omit refreshToken from JSON body as it's now in the cookie
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ error: "Internal server error", message: error.message });
+  }
+};
+
+export const refreshAdminToken = async (req, res) => {
+  try {
+    // Read refresh token from cookies
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return res
+        .status(401)
+        .json({ error: "Failed", message: "Refresh token is required" });
+    }
+
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN);
+    if (decoded.role !== "admin") {
+      return res
+        .status(401)
+        .json({ error: "Failed", message: "Invalid or expired refresh token" });
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(decoded.id, "admin");
+    return res.status(200).json({ accessToken: newAccessToken });
+  } catch (error) {
+    return res
+      .status(401)
+      .json({ error: "Failed", message: "Invalid or expired refresh token" });
+  }
+};
+
+export const logoutAdmin = async (req, res) => {
+  try {
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+    });
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

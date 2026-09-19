@@ -3,23 +3,62 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 import express from "express";
 import "dotenv/config";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 import connectDB from "./config/db.js";
-import router from "./routes/adminRoutes.js";
+import adminRouter from "./routes/adminRoutes.js";
+import userRouter from "./routes/userRoutes.js";
+import recipeRouter from "./routes/recipeRoutes.js";
+
+import uploadRouter from "./routes/uploadRoutes.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 connectDB();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Pull allowed CORS origins from .env
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
+  : [];
 
-app.get("/", (req, res) => {
-  res.send(`Recipe Management API.`);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        allowedOrigins.includes("*") ||
+        (allowedOrigins.length === 0 && /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin))
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+app.use(cookieParser());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+
+// Health check
+app.get("/health", (req, res) => {
+  res.send({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
-app.use("/admin", router)
+// API Routes
+app.use("/api/admin", adminRouter);
+app.use("/api/user", userRouter);
+app.use("/api/recipes", recipeRouter);
+app.use("/api/upload", uploadRouter);
 
-app.listen(port, () => {
+app.get("/", (req, res) => {
+  res.send("Recipe Management API.");
+});
+
+app.listen(port, "0.0.0.0", () => {
   console.log(`Server is running on http://localhost:${port}`);
 });

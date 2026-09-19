@@ -1,13 +1,18 @@
-import mongoose from 'mongoose'
+import mongoose from "mongoose";
 
-const userSchema =new mongoose.Schema(
-    {
+const userSchema = new mongoose.Schema(
+  {
     username: {
       type: String,
       required: [true, "Username is required"],
       unique: true,
       trim: true,
       minlength: [2, "Username must be at least 2 characters long"],
+    },
+    name: {
+      type: String,
+      trim: true,
+      default: "",
     },
     email: {
       type: String,
@@ -21,15 +26,10 @@ const userSchema =new mongoose.Schema(
       required: [true, "Password is required"],
       minlength: [8, "Password must be at least 8 characters long"],
     },
-    otp: {
-      type: String,
-    },
-    otpExpiration:Date,
   },
   {
     timestamps: true,
   }
 );
 
-export const User = mongoose.model("Admin", userSchema);
-
+export const User = mongoose.model("User", userSchema);

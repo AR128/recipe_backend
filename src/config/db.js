@@ -7,13 +7,13 @@ const hashPassword = async (password) => await bcrypt.hash(password, 10);
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI);
-    console.log(`✅ MongoDB Connected`);
+    console.log(`✅ MongoDB Connected ${conn}`);
 
-    const existingAdmin = await Admin.findOne({ email: process.env.ADMIN_EMAIL});
+    const existingAdmin = await Admin.findOne({ email: process.env.EMAIL });
     if (!existingAdmin) {
       const newAdmin = new Admin({
         username: process.env.ADMIN_USERNAME || "admin",
-        email: process.env.ADMIN_EMAIL,
+        email: process.env.EMAIL,
         password: await hashPassword(process.env.PASSWORD),
       });
 
