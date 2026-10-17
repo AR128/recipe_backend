@@ -1,123 +1,122 @@
-# ⚙️ Poodiest - Backend API Server
+# Poodiest Backend API
 
-The backend service for Poodiest is a robust, modular Node.js REST API built with Express 5, Mongoose (MongoDB), JSON Web Tokens (JWT), and Cloudinary.
+The REST API for **Poodiest**, a recipe-sharing application. Built with Node.js, Express 5, and MongoDB, the API supports recipe discovery and publishing, user accounts, comments, saved recipes, likes, and image uploads.
 
-## 🚀 Features
+## Features
 
-- **Authentication & Security**: JWT access token + refresh token architecture stored in httpOnly cookies, password hashing with `bcryptjs`.
-- **CORS Management**: Configurable allowed origins pulled directly from `.env` (`CORS_ORIGIN`).
-- **Database Integration**: MongoDB object modeling using Mongoose schemas (User, Recipe, Comment).
-- **Media Management**: Secure server-side Cloudinary integration for processing recipe and user avatar image uploads.
-- **REST APIs**: Structured routes for user management, public/authenticated recipe operations, comments, and admin controls.
+- User and admin authentication with JWT access tokens and HTTP-only refresh-token cookies
+- MongoDB persistence through Mongoose models
+- Recipe search, categories, trending recipes, publishing, likes, and saves
+- User profiles, comments, and account management
+- Cloudinary image uploads
+- Configurable cross-origin access
 
----
+## Requirements
 
-## 📂 Project Structure
+- Node.js and npm
+- A MongoDB database, local or hosted
+- Cloudinary credentials for image uploads
 
-```text
-backend/
-├── src/
-│   ├── config/
-│   │   └── db.js            # MongoDB Mongoose connection
-│   ├── controllers/
-│   │   ├── adminController.js
-│   │   ├── recipeController.js
-│   │   ├── uploadController.js
-│   │   └── userController.js
-│   ├── middleware/
-│   │   └── authMiddleware.js # JWT verification middleware
-│   ├── models/
-│   │   ├── Comment.js       # Comment schema & model
-│   │   ├── Recipe.js        # Recipe schema & model
-│   │   └── User.js          # User schema & model
-│   ├── routes/
-│   │   ├── adminRoutes.js
-│   │   ├── recipeRoutes.js
-│   │   ├── uploadRoutes.js
-│   │   └── userRoutes.js
-│   └── index.js             # Express application entry point
-├── .env                     # Environment configuration variables
-└── package.json
+## Quick start
+
+From the repository root:
+
+```bash
+cd backend
+npm install
 ```
 
----
+Create `backend/.env` and set the required values described below, then start the API:
 
-## ⚙️ Environment Variables
-
-Create a `.env` file in the `backend/` directory with the following variables:
-
-```env
-PORT=3000
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster0.mongodb.net/food_recipe
-CORS_ORIGIN=http://localhost:5173,http://localhost:5174,http://localhost:3000
-
-# Auth Secrets
-ACCESS_TOKEN=your_access_token_secret_here
-REFRESH_TOKEN=your_refresh_token_secret_here
-
-# Cloudinary Setup
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Default Admin Credentials
-ADMIN_USERNAME=admin
-EMAIL=admin@example.com
-PASSWORD=password123
-```
-
----
-
-## 🏃 Running the Server
-
-### Development Mode
-Runs the server with Node `--watch` for automatic restart on file changes:
 ```bash
 npm run dev
 ```
 
-### Production Mode
-```bash
-npm start
+The API listens on `http://localhost:3000` by default. Check that it is running at [http://localhost:3000/health](http://localhost:3000/health).
+
+## Configuration
+
+```env
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/food_recipe
+CORS_ORIGIN=http://localhost:5173,http://localhost:5174
+NODE_ENV=development
+
+ACCESS_TOKEN=replace_with_a_long_random_secret
+REFRESH_TOKEN=replace_with_a_different_long_random_secret
+
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 ```
 
-### Formatter / Linter Commands
-```bash
-npm run format   # Format codebase with Prettier
-npm run check    # Check formatting compliance
-```
+Use your actual MongoDB connection string and Cloudinary credentials. `CORS_ORIGIN` is a comma-separated list of allowed frontend origins; include the development URLs for the apps you use. Keep `.env` private and do not commit secrets.
 
----
+Admin login requires an admin account to already exist in the database.
 
-## 🛰️ API Routes
+## Available commands
 
-### Health Check
-- `GET /health` - Returns `{ status: "healthy", timestamp: ... }`
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the API server |
+| `npm start` | Start the API server |
+| `npm run seed` | Add the sample recipes defined in `seed.js` |
+| `npm run format` | Format backend files with Prettier |
+| `npm run check` | Check backend formatting with Prettier |
+
+## API reference
+
+All application endpoints are prefixed with `/api`. Routes marked **Protected** require a valid access token.
+
+### Health
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/health` | Return API health status |
+
+### Users (`/api/user`)
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/signup` | Register a user |
+| `POST` | `/login` | Log in and return an access token |
+| `POST` | `/refresh` | Refresh the access token using the cookie |
+| `POST` | `/logout` | Clear the refresh-token cookie |
+| `GET` | `/search` | Search users |
+| `GET` | `/public/:username` | Get a public profile |
+| `GET` | `/profile` | Get the current user's profile (**Protected**) |
+| `PUT` | `/profile` | Update the current user's profile (**Protected**) |
+| `GET` | `/my-posts` | Get the current user's recipes (**Protected**) |
+| `GET` | `/commented-posts` | Get recipes commented on by the current user (**Protected**) |
+| `GET` | `/saved-recipes` | Get the current user's saved recipes (**Protected**) |
+| `POST` | `/saved-recipes/:idOrSlug` | Toggle a saved recipe (**Protected**) |
+| `GET` | `/dashboard` | Verify access to the user dashboard (**Protected**) |
 
 ### Recipes (`/api/recipes`)
-- `GET /recipes` - Get published recipes (supports `?search=`, `?category=`, `?page=`, `?limit=`)
-- `GET /recipes/categories` - Get distinct category list
-- `GET /recipes/:slug` - Get recipe by slug
-- `GET /recipes/:slug/comments` - Get comments for a recipe
-- `POST /recipes` *(Protected)* - Create recipe post
-- `PUT /recipes/:id` *(Protected)* - Edit recipe post
-- `DELETE /recipes/:id` *(Protected)* - Delete recipe post
-- `POST /recipes/:slug/comments` *(Protected)* - Post a comment
 
-### User (`/api/user`)
-- `POST /user/signup` - Register user account
-- `POST /user/login` - User login
-- `POST /user/refresh` - Refresh access token via httpOnly cookie
-- `POST /user/logout` *(Protected)* - Logout and revoke refresh token
-- `GET /user/my-posts` *(Protected)* - Get logged-in user's recipes
-- `GET /user/public/:username` - Get public profile & posts by username
-- `GET /user/search` - Search users by query string `?q=`
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/` | List published recipes; supports search and category filters |
+| `GET` | `/trending` | List trending recipes |
+| `GET` | `/categories` | List recipe categories |
+| `GET` | `/:slug` | Get a recipe by slug |
+| `GET` | `/:slug/comments` | List recipe comments |
+| `POST` | `/` | Create a recipe (**Protected**) |
+| `PUT` | `/:id` | Update a recipe (**Protected**) |
+| `DELETE` | `/:id` | Delete a recipe (**Protected**) |
+| `POST` | `/:slug/comments` | Add a comment (**Protected**) |
+| `POST` | `/:slug/likes` | Toggle a recipe like (**Protected**) |
 
-### Admin (`/api/admin`)
-- `POST /api/admin/login` - Admin login
-- `POST /api/admin/refresh` - Admin token refresh
-- `GET /api/admin/recipes` *(Admin)* - List all recipes
-- `DELETE /api/admin/recipes/:id` *(Admin)* - Delete recipe as admin
+### Admin (`/api/admin`) and uploads (`/api/upload`)
 
-### Upload (`/api/upload`)
-- `POST /api/upload` *(Protected)* - Upload base64 image data to Cloudinary
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/admin/login` | Log in an admin |
+| `POST` | `/api/admin/refresh` | Refresh the admin access token |
+| `POST` | `/api/admin/logout` | Clear the admin refresh-token cookie |
+| `GET` | `/api/admin/dashboard` | Verify access to the admin dashboard (**Protected**) |
+| `POST` | `/api/upload` | Upload an image to Cloudinary (**Protected**) |
+
+## Related applications
+
+The API serves the [Poodiest frontend](../frontend/README.md) and the admin app in this repository. Set each app's API URL and include its origin in `CORS_ORIGIN`.

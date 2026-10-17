@@ -1,22 +1,39 @@
 import { Recipe } from "../models/Recipe.js";
 import { Comment } from "../models/Comment.js";
 import { User } from "../models/User.js";
+import mongoose from "mongoose";
+
+const addLikeState = (recipe, userId) => {
+  const recipeData = recipe.toObject ? recipe.toObject() : recipe;
+  const likes = recipeData.likes || [];
+  delete recipeData.likes;
+
+  return {
+    ...recipeData,
+    likesCount: likes.length,
+    likedByMe: Boolean(
+      userId && likes.some((likeId) => likeId.toString() === userId)
+    ),
+  };
+};
 
 // GET /api/recipes
 // Public — list all published recipes, optional ?search= query
 export const getRecipes = async (req, res) => {
   try {
-    const { search, category, page = 1, limit = 20 } = req.query;
+    const { search, category, tag, page = 1, limit = 20 } = req.query;
 
     const filter = { published: true };
+    const searchQuery = (search || tag || "").trim();
 
-    if (search && search.trim()) {
+    if (searchQuery) {
+      const strippedTag = searchQuery.replace(/^#/, "");
       filter.$or = [
-        { title: { $regex: search.trim(), $options: "i" } },
-        { description: { $regex: search.trim(), $options: "i" } },
-        { tags: { $in: [new RegExp(search.trim(), "i")] } },
-        { category: { $regex: search.trim(), $options: "i" } },
-        { authorName: { $regex: search.trim(), $options: "i" } },
+        { title: { $regex: searchQuery, $options: "i" } },
+        { description: { $regex: searchQuery, $options: "i" } },
+        { tags: { $regex: strippedTag || searchQuery, $options: "i" } },
+        { category: { $regex: strippedTag || searchQuery, $options: "i" } },
+        { authorName: { $regex: searchQuery, $options: "i" } },
       ];
     }
 
@@ -29,7 +46,7 @@ export const getRecipes = async (req, res) => {
     const [recipes, total] = await Promise.all([
       Recipe.find(filter)
         .select(
-          "title slug description image authorName category tags cookTime prepTime servings createdAt"
+          "title slug description image authorName category tags cookTime prepTime servings createdAt likes"
         )
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -38,7 +55,7 @@ export const getRecipes = async (req, res) => {
     ]);
 
     res.status(200).json({
-      recipes,
+      recipes: recipes.map((recipe) => addLikeState(recipe, req.user?.id)),
       total,
       page: parseInt(page),
       pages: Math.ceil(total / parseInt(limit)),
@@ -59,7 +76,7 @@ export const getRecipeBySlug = async (req, res) => {
 
     const recipe = await Recipe.findOne({ slug, published: true }).populate(
       "author",
-      "username email"
+      "username name email"
     );
 
     if (!recipe) {
@@ -68,9 +85,63 @@ export const getRecipeBySlug = async (req, res) => {
         .json({ error: "Not Found", message: "Recipe not found" });
     }
 
-    res.status(200).json({ recipe });
+    const savedCount = await User.countDocuments({ savedRecipes: recipe._id });
+
+    res.status(200).json({
+      recipe: {
+        ...addLikeState(recipe, req.user?.id),
+        savedCount,
+      },
+    });
   } catch (error) {
     console.error("getRecipeBySlug error:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error", message: error.message });
+  }
+};
+
+// POST /api/recipes/:slug/likes
+// Protected — toggle a user's like on a published recipe
+export const toggleRecipeLike = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const userId = req.user.id;
+    const recipe = await Recipe.findOne({ slug, published: true }).select(
+      "_id likes"
+    );
+
+    if (!recipe) {
+      return res
+        .status(404)
+        .json({ error: "Not Found", message: "Recipe not found" });
+    }
+
+    const userExists = await User.exists({ _id: userId });
+    if (!userExists) {
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "Only registered users can like recipes",
+      });
+    }
+
+    const alreadyLiked = recipe.likes.some(
+      (likeId) => likeId.toString() === userId
+    );
+    await Recipe.updateOne(
+      { _id: recipe._id },
+      alreadyLiked
+        ? { $pull: { likes: userId } }
+        : { $addToSet: { likes: userId } }
+    );
+
+    const updatedRecipe = await Recipe.findById(recipe._id).select("likes");
+    res.status(200).json({
+      liked: !alreadyLiked,
+      likesCount: updatedRecipe.likes.length,
+    });
+  } catch (error) {
+    console.error("toggleRecipeLike error:", error);
     res
       .status(500)
       .json({ error: "Internal server error", message: error.message });
@@ -223,7 +294,9 @@ export const createRecipe = async (req, res) => {
     const userId = req.user.id;
     const user = await User.findById(userId).select("username name");
     const authorName =
-      user?.name && user.name.trim() ? user.name.trim() : user?.username || "Chef";
+      user?.name && user.name.trim()
+        ? user.name.trim()
+        : user?.username || "Chef";
 
     // Format tags if passed as string or array
     const formattedTags = Array.isArray(tags)
@@ -282,12 +355,17 @@ export const updateRecipe = async (req, res) => {
     const recipe = await Recipe.findById(id);
 
     if (!recipe) {
-      return res.status(404).json({ error: "Not Found", message: "Recipe not found" });
+      return res
+        .status(404)
+        .json({ error: "Not Found", message: "Recipe not found" });
     }
 
     // Check ownership or admin privilege
     if (recipe.author.toString() !== userId && userRole !== "admin") {
-      return res.status(403).json({ error: "Forbidden", message: "You can only edit your own recipes" });
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You can only edit your own recipes",
+      });
     }
 
     const {
@@ -306,14 +384,19 @@ export const updateRecipe = async (req, res) => {
 
     if (title !== undefined) {
       if (!title.trim()) {
-        return res.status(400).json({ error: "Validation", message: "Title cannot be empty" });
+        return res
+          .status(400)
+          .json({ error: "Validation", message: "Title cannot be empty" });
       }
       recipe.title = title.trim();
     }
 
     if (description !== undefined) {
       if (!description.trim()) {
-        return res.status(400).json({ error: "Validation", message: "Description cannot be empty" });
+        return res.status(400).json({
+          error: "Validation",
+          message: "Description cannot be empty",
+        });
       }
       recipe.description = description.trim();
     }
@@ -329,8 +412,11 @@ export const updateRecipe = async (req, res) => {
       recipe.tags = Array.isArray(tags)
         ? tags.map((t) => t.trim()).filter(Boolean)
         : typeof tags === "string"
-        ? tags.split(",").map((t) => t.trim()).filter(Boolean)
-        : [];
+          ? tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [];
     }
 
     if (ingredients !== undefined) {
@@ -339,7 +425,9 @@ export const updateRecipe = async (req, res) => {
 
     if (steps !== undefined) {
       recipe.steps = Array.isArray(steps)
-        ? steps.map((s) => (typeof s === "string" ? s.trim() : s)).filter(Boolean)
+        ? steps
+            .map((s) => (typeof s === "string" ? s.trim() : s))
+            .filter(Boolean)
         : [];
     }
 
@@ -351,7 +439,9 @@ export const updateRecipe = async (req, res) => {
     });
   } catch (error) {
     console.error("updateRecipe error:", error);
-    res.status(500).json({ error: "Internal server error", message: error.message });
+    res
+      .status(500)
+      .json({ error: "Internal server error", message: error.message });
   }
 };
 
@@ -366,12 +456,17 @@ export const deleteRecipe = async (req, res) => {
     const recipe = await Recipe.findById(id);
 
     if (!recipe) {
-      return res.status(404).json({ error: "Not Found", message: "Recipe not found" });
+      return res
+        .status(404)
+        .json({ error: "Not Found", message: "Recipe not found" });
     }
 
     // Check ownership or admin privilege
     if (recipe.author.toString() !== userId && userRole !== "admin") {
-      return res.status(403).json({ error: "Forbidden", message: "You can only delete your own recipes" });
+      return res.status(403).json({
+        error: "Forbidden",
+        message: "You can only delete your own recipes",
+      });
     }
 
     // Delete comments associated with this recipe
@@ -386,6 +481,55 @@ export const deleteRecipe = async (req, res) => {
     });
   } catch (error) {
     console.error("deleteRecipe error:", error);
-    res.status(500).json({ error: "Internal server error", message: error.message });
+    res
+      .status(500)
+      .json({ error: "Internal server error", message: error.message });
+  }
+};
+
+// GET /api/recipes/trending
+// Public — top recipes ranked by database-backed likes
+export const getTrendingRecipes = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 9;
+
+    const recipes = await Recipe.aggregate([
+      { $match: { published: true } },
+      {
+        $addFields: {
+          likesCount: { $size: { $ifNull: ["$likes", []] } },
+          likedByMe: req.user?.id
+            ? {
+                $in: [
+                  new mongoose.Types.ObjectId(req.user.id),
+                  { $ifNull: ["$likes", []] },
+                ],
+              }
+            : false,
+        },
+      },
+      {
+        $project: {
+          likes: 0,
+          content: 0,
+        },
+      },
+      {
+        $sort: {
+          likesCount: -1,
+          createdAt: -1,
+        },
+      },
+      {
+        $limit: limit,
+      },
+    ]);
+
+    res.status(200).json({ recipes });
+  } catch (error) {
+    console.error("getTrendingRecipes error:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error", message: error.message });
   }
 };

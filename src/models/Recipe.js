@@ -36,13 +36,19 @@ const recipeSchema = new mongoose.Schema(
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Admin",
+      ref: "User",
       required: true,
     },
     authorName: {
       type: String,
       default: "Chef",
     },
+    likes: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     category: {
       type: String,
       trim: true,

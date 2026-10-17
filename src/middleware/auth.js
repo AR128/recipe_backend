@@ -20,3 +20,21 @@ export const verifyToken = (req, res, next) => {
     next();
   });
 };
+
+export const optionalVerifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next();
+  }
+
+  jwt.verify(
+    authHeader.split(" ")[1],
+    process.env.ACCESS_TOKEN,
+    (err, decoded) => {
+      if (!err) {
+        req.user = decoded;
+      }
+      next();
+    }
+  );
+};

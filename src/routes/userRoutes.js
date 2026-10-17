@@ -8,6 +8,8 @@ import {
   updateUserProfile,
   getCommentedPosts,
   getMyPosts,
+  getSavedRecipes,
+  toggleSaveRecipe,
   searchUsers,
   getPublicUserProfile,
 } from "../controllers/userController.js";
@@ -28,6 +30,8 @@ router.get("/profile", verifyToken, getUserProfile);
 router.put("/profile", verifyToken, updateUserProfile);
 router.get("/commented-posts", verifyToken, getCommentedPosts);
 router.get("/my-posts", verifyToken, getMyPosts);
+router.get("/saved-recipes", verifyToken, getSavedRecipes);
+router.post("/saved-recipes/:idOrSlug", verifyToken, toggleSaveRecipe);
 
 // Protected test route
 router.get("/dashboard", verifyToken, (req, res) => {
