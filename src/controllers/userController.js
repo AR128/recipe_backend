@@ -373,12 +373,12 @@ export const getMyPosts = async (req, res) => {
   }
 };
 
-// GET /api/user/search?q=query&hasRecipes=true&limit=20
+// GET /api/user/search?q=query&hasRecipes=true&limit=10
 // Public — search users by username or display name, optionally filter by active recipe publishers
 export const searchUsers = async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query, {
-      defaultLimit: 20,
+      defaultLimit: 10,
       maxLimit: 50,
     });
     const q = queryString(req.query.q, "q", { max: 64 });
