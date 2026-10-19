@@ -25,4 +25,7 @@ const commentSchema = new mongoose.Schema(
   }
 );
 
+commentSchema.index({ recipe: 1, createdAt: -1 });
+commentSchema.index({ user: 1, recipe: 1 });
+
 export const Comment = mongoose.model("Comment", commentSchema);

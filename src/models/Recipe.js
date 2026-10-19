@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
 const ingredientSchema = new mongoose.Schema({
-  amount: { type: String, trim: true },
-  item: { type: String, required: true, trim: true },
+  amount: { type: String, trim: true, maxlength: 40 },
+  item: { type: String, required: true, trim: true, maxlength: 120 },
 });
 
 const recipeSchema = new mongoose.Schema(
@@ -29,10 +29,12 @@ const recipeSchema = new mongoose.Schema(
     content: {
       type: String,
       default: "",
+      maxlength: 20000,
     },
     image: {
       type: String,
       default: "",
+      maxlength: 2048,
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
@@ -42,6 +44,7 @@ const recipeSchema = new mongoose.Schema(
     authorName: {
       type: String,
       default: "Chef",
+      maxlength: 80,
     },
     likes: [
       {
@@ -53,27 +56,45 @@ const recipeSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "General",
+      maxlength: 80,
     },
-    tags: [{ type: String, trim: true }],
+    tags: [{ type: String, trim: true, maxlength: 40 }],
     cookTime: {
       type: String,
       default: "",
+      maxlength: 40,
     },
     prepTime: {
       type: String,
       default: "",
+      maxlength: 40,
     },
     servings: {
       type: Number,
       default: 4,
+      min: 1,
+      max: 100,
     },
-    ingredients: [ingredientSchema],
-    steps: [
-      {
-        type: String,
-        trim: true,
+    ingredients: {
+      type: [ingredientSchema],
+      validate: {
+        validator: (ingredients) => ingredients.length <= 100,
+        message: "A recipe cannot have more than 100 ingredients.",
       },
-    ],
+    },
+    steps: {
+      type: [
+        {
+          type: String,
+          trim: true,
+          maxlength: 2000,
+        },
+      ],
+      validate: {
+        validator: (steps) => steps.length <= 50,
+        message: "A recipe cannot have more than 50 steps.",
+      },
+    },
     published: {
       type: Boolean,
       default: false,
@@ -82,6 +103,13 @@ const recipeSchema = new mongoose.Schema(
   {
     timestamps: true,
   }
+);
+
+recipeSchema.index({ published: 1, createdAt: -1 });
+recipeSchema.index({ author: 1, createdAt: -1 });
+recipeSchema.index(
+  { published: 1, category: 1, createdAt: -1 },
+  { collation: { locale: "en", strength: 2 } }
 );
 
 recipeSchema.pre("validate", function () {

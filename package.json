@@ -7,6 +7,7 @@
     "start": "node src/index.js",
     "dev": "node src/index.js",
     "seed": "node seed.js",
+    "test": "node --test",
     "format": "prettier . --write",
     "check": "prettier . --check"
   },
@@ -15,16 +16,21 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "cloudinary": "^2.11.0",
-    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.10.1"
+    "express-mongo-sanitize": "^2.2.0",
+    "firebase-admin": "^14.5.0",
+    "helmet": "^8.3.0",
+    "mongoose": "^9.10.1",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "prettier": "3.9.6"
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
   }
 }

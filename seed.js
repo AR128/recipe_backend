@@ -3,9 +3,7 @@ import mongoose from "mongoose";
 import { User } from "./src/models/User.js";
 import { Recipe } from "./src/models/Recipe.js";
 
-const AYUSH_EMAIL = "ayushchdry2004.apsb@gmail.com";
-const SUMIT_EMAIL = "sumitkumarpoddar74@gmail.com";
-const AYUSH_RECIPE_COUNT = 13;
+const AYUSH_USERNAME = "ayushchoudhary8540";
 
 const recipes = [
   {
@@ -631,30 +629,692 @@ const recipes = [
   },
 ];
 
+const additionalRecipeImages = [
+  "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1528207776546-365bb710ee93?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1547592180-85f173990554?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1625944525533-473f1a3d54e7?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1476124369491-e7addf5db371?w=1200&auto=format&fit=crop&q=85",
+  "https://images.unsplash.com/photo-1488477181946-6428a0291777?w=1200&auto=format&fit=crop&q=85",
+];
+
+const makeAdditionalRecipe = (
+  {
+    title,
+    description,
+    category,
+    tags,
+    prepTime,
+    cookTime,
+    servings = 4,
+    ingredients,
+    steps,
+  },
+  index
+) => ({
+  title,
+  slug: title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim(),
+  description,
+  content: description,
+  image: additionalRecipeImages[index % additionalRecipeImages.length],
+  authorName: "Ayush Choudhary",
+  category,
+  tags,
+  prepTime,
+  cookTime,
+  servings,
+  ingredients,
+  steps,
+  published: true,
+});
+
+const additionalAyushRecipes = [
+  {
+    title: "Lemon Garlic Butter Spaghetti",
+    description:
+      "A bright, buttery spaghetti finished with lemon, garlic, and parsley.",
+    category: "Dinner",
+    tags: ["pasta", "lemon", "quick"],
+    prepTime: "10 mins",
+    cookTime: "15 mins",
+    ingredients: [
+      { amount: "350 g", item: "Spaghetti" },
+      { amount: "3 tbsp", item: "Butter" },
+      { amount: "4 cloves", item: "Garlic, thinly sliced" },
+      { amount: "1", item: "Lemon, zested and juiced" },
+      { amount: "1/3 cup", item: "Fresh parsley, chopped" },
+      { amount: "40 g", item: "Parmesan, grated" },
+    ],
+    steps: [
+      "Cook spaghetti in salted water until al dente and reserve a cup of pasta water.",
+      "Melt butter in a pan and gently cook garlic until fragrant but not browned.",
+      "Add lemon zest, juice, spaghetti, and a splash of pasta water. Toss until glossy.",
+      "Finish with parsley, parmesan, and black pepper.",
+    ],
+  },
+  {
+    title: "Roasted Vegetable Couscous",
+    description:
+      "Fluffy couscous topped with caramelized vegetables and a lemon herb dressing.",
+    category: "Lunch",
+    tags: ["couscous", "vegetarian", "meal prep"],
+    prepTime: "15 mins",
+    cookTime: "25 mins",
+    ingredients: [
+      { amount: "250 g", item: "Couscous" },
+      { amount: "1", item: "Red bell pepper, diced" },
+      { amount: "1", item: "Courgette, diced" },
+      { amount: "1", item: "Red onion, cut into wedges" },
+      { amount: "2 tbsp", item: "Olive oil" },
+      { amount: "1", item: "Lemon, juiced" },
+    ],
+    steps: [
+      "Heat the oven to 220 C. Toss pepper, courgette, and onion with olive oil and salt.",
+      "Roast the vegetables for 20 to 25 minutes until tender and browned at the edges.",
+      "Cover couscous with boiling salted water, rest for 5 minutes, then fluff.",
+      "Fold vegetables and lemon juice through the couscous and serve warm.",
+    ],
+  },
+  {
+    title: "Honey Soy Chicken Rice Bowls",
+    description:
+      "Tender chicken glazed with honey and soy, served over steamed rice.",
+    category: "Dinner",
+    tags: ["chicken", "rice", "high protein"],
+    prepTime: "15 mins",
+    cookTime: "20 mins",
+    ingredients: [
+      { amount: "500 g", item: "Chicken thighs, bite-sized" },
+      { amount: "2 tbsp", item: "Soy sauce" },
+      { amount: "1 tbsp", item: "Honey" },
+      { amount: "1 tsp", item: "Fresh ginger, grated" },
+      { amount: "250 g", item: "Long-grain rice" },
+      { amount: "2", item: "Spring onions, sliced" },
+    ],
+    steps: [
+      "Cook rice according to its package directions.",
+      "Mix soy sauce, honey, and ginger. Brown chicken in a hot pan until cooked through.",
+      "Pour in the sauce and simmer for 2 to 3 minutes until it coats the chicken.",
+      "Serve over rice with sliced spring onions.",
+    ],
+  },
+  {
+    title: "Creamy Spinach Mushroom Toast",
+    description:
+      "Garlicky mushrooms and wilted spinach piled onto crisp sourdough toast.",
+    category: "Breakfast",
+    tags: ["mushroom", "vegetarian", "toast"],
+    prepTime: "10 mins",
+    cookTime: "12 mins",
+    ingredients: [
+      { amount: "250 g", item: "Button mushrooms, sliced" },
+      { amount: "2 cups", item: "Baby spinach" },
+      { amount: "2 cloves", item: "Garlic, minced" },
+      { amount: "2 tbsp", item: "Cream cheese" },
+      { amount: "4 slices", item: "Sourdough bread" },
+      { amount: "1 tbsp", item: "Olive oil" },
+    ],
+    steps: [
+      "Toast the sourdough until crisp.",
+      "Heat olive oil in a skillet and cook mushrooms until browned. Add garlic and stir briefly.",
+      "Add spinach and cook until wilted, then stir through cream cheese and season.",
+      "Spoon the mushroom mixture onto toast and serve immediately.",
+    ],
+  },
+  {
+    title: "Spiced Sweet Potato and Black Bean Tacos",
+    description:
+      "Roasted spiced sweet potato and black beans tucked into warm tortillas.",
+    category: "Dinner",
+    tags: ["tacos", "vegan", "sweet potato"],
+    prepTime: "15 mins",
+    cookTime: "25 mins",
+    ingredients: [
+      { amount: "2 medium", item: "Sweet potatoes, diced" },
+      { amount: "1 can", item: "Black beans, drained and rinsed" },
+      { amount: "1 tsp", item: "Ground cumin" },
+      { amount: "1 tsp", item: "Smoked paprika" },
+      { amount: "8", item: "Small corn tortillas" },
+      { amount: "1", item: "Lime, cut into wedges" },
+    ],
+    steps: [
+      "Heat the oven to 220 C. Toss sweet potato with cumin, paprika, oil, and salt.",
+      "Roast for 20 to 25 minutes, turning once, until tender and browned.",
+      "Warm the black beans in a small pan and heat the tortillas.",
+      "Fill tortillas with sweet potato and beans; serve with lime.",
+    ],
+  },
+  {
+    title: "Baked Pesto Salmon",
+    description:
+      "A simple oven-baked salmon supper with basil pesto and juicy tomatoes.",
+    category: "Seafood",
+    tags: ["salmon", "pesto", "gluten free"],
+    prepTime: "10 mins",
+    cookTime: "18 mins",
+    ingredients: [
+      { amount: "4 fillets", item: "Salmon, about 150 g each" },
+      { amount: "4 tbsp", item: "Basil pesto" },
+      { amount: "200 g", item: "Cherry tomatoes" },
+      { amount: "1", item: "Lemon, cut into wedges" },
+      { amount: "1 tbsp", item: "Olive oil" },
+    ],
+    steps: [
+      "Heat the oven to 200 C and place salmon in a lightly oiled baking dish.",
+      "Spread pesto over each fillet and scatter tomatoes around the fish.",
+      "Bake for 15 to 18 minutes, until the salmon flakes easily.",
+      "Serve with lemon wedges and a green salad.",
+    ],
+  },
+  {
+    title: "Roasted Red Pepper Hummus Wraps",
+    description:
+      "Creamy hummus, roasted peppers, and crisp greens rolled into easy lunch wraps.",
+    category: "Lunch",
+    tags: ["hummus", "vegetarian", "lunch"],
+    prepTime: "15 mins",
+    cookTime: "0 mins",
+    ingredients: [
+      { amount: "4", item: "Whole-wheat tortillas" },
+      { amount: "200 g", item: "Hummus" },
+      { amount: "2", item: "Roasted red peppers, sliced" },
+      { amount: "1", item: "Cucumber, cut into batons" },
+      { amount: "2 cups", item: "Baby spinach" },
+      { amount: "1/2", item: "Red onion, thinly sliced" },
+    ],
+    steps: [
+      "Spread hummus over each tortilla, leaving a small border.",
+      "Layer spinach, roasted peppers, cucumber, and red onion down the centre.",
+      "Fold in the sides and roll tightly.",
+      "Slice in half and serve, or wrap and chill for packed lunches.",
+    ],
+  },
+  {
+    title: "One-Pot Tomato Basil Gnocchi",
+    description:
+      "Pillowy gnocchi simmered in a quick tomato sauce with basil and mozzarella.",
+    category: "Dinner",
+    tags: ["gnocchi", "vegetarian", "one pot"],
+    prepTime: "10 mins",
+    cookTime: "20 mins",
+    ingredients: [
+      { amount: "500 g", item: "Shelf-stable potato gnocchi" },
+      { amount: "400 g", item: "Chopped tomatoes" },
+      { amount: "150 ml", item: "Vegetable stock" },
+      { amount: "2 cloves", item: "Garlic, minced" },
+      { amount: "125 g", item: "Mozzarella, torn" },
+      { amount: "1/4 cup", item: "Fresh basil leaves" },
+    ],
+    steps: [
+      "Soften garlic in a large covered skillet with a little olive oil.",
+      "Add tomatoes, stock, and gnocchi. Simmer for 10 to 12 minutes, stirring occasionally.",
+      "Season the sauce and scatter mozzarella over the top.",
+      "Cover until the cheese melts, then finish with basil.",
+    ],
+  },
+  {
+    title: "Banana Oat Breakfast Cookies",
+    description:
+      "Soft breakfast cookies made with ripe banana, oats, and dark chocolate.",
+    category: "Breakfast",
+    tags: ["oats", "banana", "snack"],
+    prepTime: "10 mins",
+    cookTime: "15 mins",
+    ingredients: [
+      { amount: "2 ripe", item: "Bananas, mashed" },
+      { amount: "180 g", item: "Rolled oats" },
+      { amount: "2 tbsp", item: "Peanut butter" },
+      { amount: "40 g", item: "Dark chocolate chips" },
+      { amount: "1/2 tsp", item: "Ground cinnamon" },
+    ],
+    steps: [
+      "Heat the oven to 180 C and line a baking tray with parchment.",
+      "Mix mashed banana, oats, peanut butter, cinnamon, and chocolate chips.",
+      "Spoon 10 small mounds onto the tray and flatten gently.",
+      "Bake for 12 to 15 minutes until set, then cool before serving.",
+    ],
+  },
+  {
+    title: "Crispy Chickpea Greek Salad",
+    description:
+      "Crunchy roasted chickpeas add a hearty twist to a fresh Greek-style salad.",
+    category: "Salad",
+    tags: ["chickpeas", "salad", "vegetarian"],
+    prepTime: "15 mins",
+    cookTime: "25 mins",
+    ingredients: [
+      { amount: "1 can", item: "Chickpeas, drained and dried" },
+      { amount: "1 tsp", item: "Dried oregano" },
+      { amount: "1", item: "Cucumber, chopped" },
+      { amount: "200 g", item: "Cherry tomatoes, halved" },
+      { amount: "100 g", item: "Feta, crumbled" },
+      { amount: "2 tbsp", item: "Olive oil" },
+    ],
+    steps: [
+      "Heat the oven to 200 C. Toss chickpeas with olive oil, oregano, and salt.",
+      "Roast for 20 to 25 minutes until crisp, shaking the tray once.",
+      "Combine cucumber and tomatoes in a bowl and top with feta.",
+      "Add warm chickpeas and finish with lemon juice and black pepper.",
+    ],
+  },
+  {
+    title: "Sesame Tofu and Broccoli",
+    description:
+      "Crisp tofu and tender broccoli tossed in a savoury sesame ginger sauce.",
+    category: "Dinner",
+    tags: ["tofu", "vegan", "stir fry"],
+    prepTime: "15 mins",
+    cookTime: "20 mins",
+    ingredients: [
+      { amount: "400 g", item: "Firm tofu, pressed and cubed" },
+      { amount: "1 head", item: "Broccoli, cut into florets" },
+      { amount: "2 tbsp", item: "Soy sauce" },
+      { amount: "1 tbsp", item: "Maple syrup" },
+      { amount: "1 tsp", item: "Fresh ginger, grated" },
+      { amount: "1 tbsp", item: "Sesame seeds" },
+    ],
+    steps: [
+      "Pat tofu dry and brown it on all sides in a hot oiled skillet.",
+      "Steam or stir-fry broccoli until bright green and just tender.",
+      "Whisk soy sauce, maple syrup, ginger, and a splash of water; pour into the pan.",
+      "Toss tofu and broccoli in the sauce and finish with sesame seeds.",
+    ],
+  },
+  {
+    title: "Creamy Corn and Potato Chowder",
+    description:
+      "A cosy bowl of potato and sweetcorn chowder with thyme and a creamy finish.",
+    category: "Lunch",
+    tags: ["soup", "corn", "comfort food"],
+    prepTime: "15 mins",
+    cookTime: "30 mins",
+    ingredients: [
+      { amount: "500 g", item: "Potatoes, peeled and diced" },
+      { amount: "300 g", item: "Sweetcorn kernels" },
+      { amount: "1", item: "Small onion, diced" },
+      { amount: "750 ml", item: "Vegetable stock" },
+      { amount: "150 ml", item: "Milk" },
+      { amount: "1 tsp", item: "Fresh thyme leaves" },
+    ],
+    steps: [
+      "Soften onion in a large saucepan with a little butter or oil.",
+      "Add potatoes, stock, and thyme. Simmer until the potatoes are tender.",
+      "Stir in corn and milk, then simmer gently for 5 minutes.",
+      "Mash a few potatoes in the pan to thicken and season before serving.",
+    ],
+  },
+  {
+    title: "Baked Cinnamon French Toast",
+    description:
+      "An easy oven-baked French toast casserole with cinnamon and maple.",
+    category: "Breakfast",
+    tags: ["brunch", "cinnamon", "make ahead"],
+    prepTime: "15 mins",
+    cookTime: "35 mins",
+    ingredients: [
+      { amount: "1 loaf", item: "Brioche, cut into cubes" },
+      { amount: "4", item: "Eggs" },
+      { amount: "300 ml", item: "Milk" },
+      { amount: "2 tbsp", item: "Maple syrup" },
+      { amount: "1 tsp", item: "Ground cinnamon" },
+      { amount: "1 tsp", item: "Vanilla extract" },
+    ],
+    steps: [
+      "Heat the oven to 180 C and butter a medium baking dish.",
+      "Arrange brioche cubes in the dish.",
+      "Whisk eggs, milk, maple syrup, cinnamon, and vanilla; pour evenly over bread.",
+      "Rest for 10 minutes, then bake for 30 to 35 minutes until puffed and golden.",
+    ],
+  },
+  {
+    title: "Lentil and Spinach Coconut Soup",
+    description:
+      "Red lentils and spinach simmered in a gently spiced coconut broth.",
+    category: "Dinner",
+    tags: ["lentils", "vegan", "soup"],
+    prepTime: "10 mins",
+    cookTime: "30 mins",
+    ingredients: [
+      { amount: "200 g", item: "Red lentils, rinsed" },
+      { amount: "1", item: "Onion, diced" },
+      { amount: "1 tsp", item: "Ground cumin" },
+      { amount: "400 ml", item: "Coconut milk" },
+      { amount: "600 ml", item: "Vegetable stock" },
+      { amount: "100 g", item: "Baby spinach" },
+    ],
+    steps: [
+      "Cook onion in a saucepan until soft, then stir in cumin.",
+      "Add lentils, coconut milk, and stock. Bring to a boil and reduce to a simmer.",
+      "Cook for about 20 minutes, stirring occasionally, until lentils are tender.",
+      "Fold in spinach until wilted, season, and serve with warm flatbread.",
+    ],
+  },
+  {
+    title: "Prawn and Avocado Lime Salad",
+    description:
+      "Juicy prawns, creamy avocado, and crisp leaves with a zesty lime dressing.",
+    category: "Seafood",
+    tags: ["prawns", "avocado", "salad"],
+    prepTime: "15 mins",
+    cookTime: "6 mins",
+    ingredients: [
+      { amount: "400 g", item: "Prawns, peeled and deveined" },
+      { amount: "1", item: "Ripe avocado, sliced" },
+      { amount: "4 cups", item: "Mixed salad leaves" },
+      { amount: "1", item: "Lime, juiced" },
+      { amount: "1 tbsp", item: "Olive oil" },
+      { amount: "1/2", item: "Cucumber, sliced" },
+    ],
+    steps: [
+      "Season prawns and cook in a hot skillet for 2 to 3 minutes per side.",
+      "Whisk lime juice with olive oil, salt, and black pepper.",
+      "Arrange leaves, cucumber, and avocado on a platter.",
+      "Top with warm prawns and drizzle with lime dressing.",
+    ],
+  },
+  {
+    title: "Cheesy Broccoli Baked Potatoes",
+    description:
+      "Fluffy baked potatoes filled with broccoli and a quick cheddar sauce.",
+    category: "Lunch",
+    tags: ["potato", "broccoli", "vegetarian"],
+    prepTime: "10 mins",
+    cookTime: "60 mins",
+    ingredients: [
+      { amount: "4 large", item: "Baking potatoes" },
+      { amount: "250 g", item: "Broccoli florets" },
+      { amount: "150 g", item: "Cheddar, grated" },
+      { amount: "150 ml", item: "Milk" },
+      { amount: "1 tbsp", item: "Butter" },
+      { amount: "1 tbsp", item: "Plain flour" },
+    ],
+    steps: [
+      "Heat the oven to 200 C. Prick potatoes and bake until soft, about 55 minutes.",
+      "Steam broccoli until tender and bright green.",
+      "Melt butter, stir in flour, then gradually whisk in milk until smooth and thick.",
+      "Stir in cheddar, split potatoes, and fill with broccoli and cheese sauce.",
+    ],
+  },
+  {
+    title: "Peach and Almond Overnight Oats",
+    description:
+      "Creamy overnight oats topped with ripe peach and toasted almonds.",
+    category: "Breakfast",
+    tags: ["oats", "peach", "make ahead"],
+    prepTime: "10 mins",
+    cookTime: "0 mins",
+    ingredients: [
+      { amount: "160 g", item: "Rolled oats" },
+      { amount: "300 ml", item: "Milk of choice" },
+      { amount: "120 g", item: "Plain yogurt" },
+      { amount: "1 tbsp", item: "Chia seeds" },
+      { amount: "2", item: "Ripe peaches, sliced" },
+      { amount: "2 tbsp", item: "Sliced almonds" },
+    ],
+    steps: [
+      "Stir oats, milk, yogurt, and chia seeds together in a bowl or jars.",
+      "Cover and refrigerate for at least 6 hours or overnight.",
+      "Toast almonds in a dry pan until fragrant.",
+      "Top oats with sliced peaches and almonds before serving.",
+    ],
+  },
+  {
+    title: "Turkey and Spinach Meatballs",
+    description:
+      "Tender turkey meatballs simmered in tomato sauce with fresh spinach.",
+    category: "Dinner",
+    tags: ["turkey", "meatballs", "high protein"],
+    prepTime: "20 mins",
+    cookTime: "25 mins",
+    ingredients: [
+      { amount: "500 g", item: "Lean ground turkey" },
+      { amount: "1", item: "Egg" },
+      { amount: "40 g", item: "Breadcrumbs" },
+      { amount: "2 tbsp", item: "Parmesan, grated" },
+      { amount: "400 g", item: "Passata" },
+      { amount: "100 g", item: "Baby spinach" },
+    ],
+    steps: [
+      "Mix turkey, egg, breadcrumbs, parmesan, salt, and pepper; shape into meatballs.",
+      "Brown meatballs in a wide pan, turning gently to colour all sides.",
+      "Pour in passata and simmer covered for 15 to 18 minutes until cooked through.",
+      "Stir spinach into the sauce to wilt and serve with pasta or crusty bread.",
+    ],
+  },
+  {
+    title: "Lemon Herb Orzo Salad",
+    description:
+      "A chilled orzo salad with cucumber, tomatoes, herbs, and lemon dressing.",
+    category: "Salad",
+    tags: ["orzo", "vegetarian", "lunch"],
+    prepTime: "15 mins",
+    cookTime: "10 mins",
+    ingredients: [
+      { amount: "250 g", item: "Orzo pasta" },
+      { amount: "1", item: "Cucumber, diced" },
+      { amount: "200 g", item: "Cherry tomatoes, quartered" },
+      { amount: "100 g", item: "Feta, crumbled" },
+      { amount: "1", item: "Lemon, juiced" },
+      { amount: "1/3 cup", item: "Fresh dill, chopped" },
+    ],
+    steps: [
+      "Cook orzo in salted water until tender, drain, and rinse briefly with cool water.",
+      "Whisk lemon juice with olive oil, salt, and pepper.",
+      "Toss orzo with cucumber, tomatoes, dill, and dressing.",
+      "Fold through feta and chill briefly or serve at room temperature.",
+    ],
+  },
+  {
+    title: "Crispy Baked Fish Tacos",
+    description:
+      "Oven-crisp white fish tucked into tortillas with crunchy cabbage slaw.",
+    category: "Seafood",
+    tags: ["fish", "tacos", "weeknight"],
+    prepTime: "20 mins",
+    cookTime: "15 mins",
+    ingredients: [
+      { amount: "500 g", item: "White fish fillets, cut into strips" },
+      { amount: "60 g", item: "Breadcrumbs" },
+      { amount: "1 tsp", item: "Smoked paprika" },
+      { amount: "8", item: "Small tortillas" },
+      { amount: "2 cups", item: "Shredded cabbage" },
+      { amount: "100 g", item: "Plain yogurt" },
+    ],
+    steps: [
+      "Heat the oven to 220 C and line a baking tray.",
+      "Coat fish strips with paprika-seasoned breadcrumbs and bake for 12 to 15 minutes.",
+      "Mix cabbage with yogurt, lime juice, and a pinch of salt.",
+      "Warm tortillas, add fish and slaw, and serve with lime wedges.",
+    ],
+  },
+  {
+    title: "Carrot Ginger Lentil Dal",
+    description:
+      "A warming red lentil dal with sweet carrot, ginger, and fragrant spices.",
+    category: "Dinner",
+    tags: ["lentils", "vegan", "curry"],
+    prepTime: "15 mins",
+    cookTime: "30 mins",
+    ingredients: [
+      { amount: "250 g", item: "Red lentils, rinsed" },
+      { amount: "2", item: "Carrots, grated" },
+      { amount: "1 tbsp", item: "Fresh ginger, grated" },
+      { amount: "1 tsp", item: "Ground turmeric" },
+      { amount: "700 ml", item: "Vegetable stock" },
+      { amount: "2 tbsp", item: "Coconut yogurt, to serve" },
+    ],
+    steps: [
+      "Add lentils, carrots, ginger, turmeric, and stock to a saucepan.",
+      "Bring to a boil, then simmer gently for 25 to 30 minutes, stirring often.",
+      "When lentils are soft and creamy, season with salt and a squeeze of lemon.",
+      "Serve with rice or flatbread and a spoonful of coconut yogurt.",
+    ],
+  },
+  {
+    title: "Apple Walnut Spinach Salad",
+    description:
+      "Fresh spinach, crisp apple, toasted walnuts, and a tangy mustard dressing.",
+    category: "Salad",
+    tags: ["spinach", "apple", "vegetarian"],
+    prepTime: "12 mins",
+    cookTime: "3 mins",
+    ingredients: [
+      { amount: "5 cups", item: "Baby spinach" },
+      { amount: "2", item: "Crisp apples, thinly sliced" },
+      { amount: "60 g", item: "Walnuts, roughly chopped" },
+      { amount: "60 g", item: "Goat cheese, crumbled" },
+      { amount: "1 tsp", item: "Dijon mustard" },
+      { amount: "2 tbsp", item: "Apple cider vinegar" },
+    ],
+    steps: [
+      "Toast walnuts in a dry skillet for 2 to 3 minutes and let cool.",
+      "Whisk mustard, vinegar, olive oil, salt, and pepper into a dressing.",
+      "Toss spinach and apple slices with the dressing.",
+      "Scatter walnuts and goat cheese over the salad and serve.",
+    ],
+  },
+  {
+    title: "Garlic Butter White Bean Skillet",
+    description:
+      "Creamy white beans cooked with garlic, herbs, and a splash of lemon.",
+    category: "Lunch",
+    tags: ["white beans", "vegetarian", "one pan"],
+    prepTime: "8 mins",
+    cookTime: "15 mins",
+    ingredients: [
+      { amount: "2 cans", item: "Cannellini beans, drained" },
+      { amount: "3 cloves", item: "Garlic, finely chopped" },
+      { amount: "2 tbsp", item: "Butter" },
+      { amount: "150 ml", item: "Vegetable stock" },
+      { amount: "2 cups", item: "Baby spinach" },
+      { amount: "1", item: "Lemon, zested and juiced" },
+    ],
+    steps: [
+      "Melt butter in a skillet and gently cook garlic until fragrant.",
+      "Add beans and stock; simmer for 8 minutes, lightly mashing a few beans.",
+      "Stir in spinach until wilted and add lemon zest and juice.",
+      "Season well and serve with toasted bread.",
+    ],
+  },
+  {
+    title: "Roasted Cauliflower Chickpea Bowls",
+    description:
+      "Spiced roasted cauliflower and chickpeas served with cool lemon yogurt.",
+    category: "Dinner",
+    tags: ["cauliflower", "chickpeas", "vegetarian"],
+    prepTime: "15 mins",
+    cookTime: "30 mins",
+    ingredients: [
+      { amount: "1 large head", item: "Cauliflower, cut into florets" },
+      { amount: "1 can", item: "Chickpeas, drained and rinsed" },
+      { amount: "1 tsp", item: "Ground cumin" },
+      { amount: "1 tsp", item: "Ground coriander" },
+      { amount: "200 g", item: "Plain yogurt" },
+      { amount: "1", item: "Lemon, juiced" },
+    ],
+    steps: [
+      "Heat the oven to 220 C. Toss cauliflower and chickpeas with oil and spices.",
+      "Roast for 25 to 30 minutes, turning once, until browned and tender.",
+      "Mix yogurt with lemon juice, salt, and a little water to make a drizzle.",
+      "Serve the roasted vegetables over rice or greens with lemon yogurt.",
+    ],
+  },
+  {
+    title: "Blueberry Lemon Baked Oatmeal",
+    description:
+      "A sliceable breakfast bake with blueberries, oats, and fresh lemon zest.",
+    category: "Breakfast",
+    tags: ["blueberry", "oats", "meal prep"],
+    prepTime: "10 mins",
+    cookTime: "35 mins",
+    ingredients: [
+      { amount: "250 g", item: "Rolled oats" },
+      { amount: "1 tsp", item: "Baking powder" },
+      { amount: "1", item: "Egg" },
+      { amount: "350 ml", item: "Milk" },
+      { amount: "200 g", item: "Blueberries" },
+      { amount: "1", item: "Lemon, zested" },
+    ],
+    steps: [
+      "Heat the oven to 180 C and lightly grease a small baking dish.",
+      "Combine oats and baking powder; whisk egg and milk separately.",
+      "Stir wet ingredients, blueberries, and lemon zest into the oats.",
+      "Bake for 30 to 35 minutes until set and golden at the edges.",
+    ],
+  },
+  {
+    title: "Quick Beef and Bell Pepper Stir-Fry",
+    description:
+      "Thinly sliced beef and peppers tossed in a simple savoury sauce.",
+    category: "Dinner",
+    tags: ["beef", "stir fry", "quick"],
+    prepTime: "15 mins",
+    cookTime: "12 mins",
+    ingredients: [
+      { amount: "400 g", item: "Beef sirloin, thinly sliced" },
+      { amount: "2", item: "Bell peppers, sliced" },
+      { amount: "2 tbsp", item: "Soy sauce" },
+      { amount: "1 tbsp", item: "Oyster sauce" },
+      { amount: "2 cloves", item: "Garlic, minced" },
+      { amount: "1 tsp", item: "Cornflour mixed with water" },
+    ],
+    steps: [
+      "Mix soy sauce, oyster sauce, and cornflour slurry in a small bowl.",
+      "Sear beef in a very hot skillet in batches; transfer to a plate.",
+      "Stir-fry peppers and garlic until crisp-tender, then return the beef.",
+      "Add sauce and toss for a minute until glossy. Serve with rice.",
+    ],
+  },
+  {
+    title: "Herbed Chicken and White Bean Soup",
+    description:
+      "A nourishing chicken soup with cannellini beans, carrots, and fresh herbs.",
+    category: "Lunch",
+    tags: ["chicken", "soup", "beans"],
+    prepTime: "15 mins",
+    cookTime: "30 mins",
+    ingredients: [
+      { amount: "300 g", item: "Chicken breast, diced" },
+      { amount: "1 can", item: "Cannellini beans, drained" },
+      { amount: "2", item: "Carrots, diced" },
+      { amount: "1", item: "Celery stalk, diced" },
+      { amount: "1 litre", item: "Chicken stock" },
+      { amount: "2 tbsp", item: "Fresh parsley, chopped" },
+    ],
+    steps: [
+      "Soften carrots and celery in a large pot with a little oil.",
+      "Add chicken and stock. Simmer gently until chicken is cooked through.",
+      "Stir in beans and simmer for 5 minutes; shred larger chicken pieces if needed.",
+      "Season with pepper and finish with chopped parsley.",
+    ],
+  },
+];
+
+const seededAyushRecipes = additionalAyushRecipes.map(makeAdditionalRecipe);
+const allRecipes = [...recipes, ...seededAyushRecipes];
+
 const seed = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
 
-    const users = await User.find({
-      email: { $in: [AYUSH_EMAIL, SUMIT_EMAIL] },
-    });
-    const usersByEmail = new Map(users.map((user) => [user.email, user]));
-    const ayush = usersByEmail.get(AYUSH_EMAIL);
-    const sumit = usersByEmail.get(SUMIT_EMAIL);
+    const ayush = await User.findOne({ username: AYUSH_USERNAME });
 
-    if (!ayush || !sumit) {
-      const missingEmails = [
-        !ayush && AYUSH_EMAIL,
-        !sumit && SUMIT_EMAIL,
-      ].filter(Boolean);
+    if (!ayush) {
       throw new Error(
-        `Create these user accounts before seeding recipes: ${missingEmails.join(", ")}`
+        `Create the user account with username ${AYUSH_USERNAME} before seeding recipes.`
       );
     }
 
     const result = await Recipe.bulkWrite(
-      recipes.map((recipe, index) => {
-        const owner = index < AYUSH_RECIPE_COUNT ? ayush : sumit;
+      allRecipes.map((recipe) => {
         const recipeData = { ...recipe };
         delete recipeData.authorName;
 
@@ -663,8 +1323,8 @@ const seed = async () => {
             filter: { slug: recipe.slug },
             update: {
               $set: {
-                author: owner._id,
-                authorName: owner.name?.trim() || owner.username,
+                author: ayush._id,
+                authorName: ayush.name?.trim() || ayush.username,
               },
               $setOnInsert: recipeData,
             },
@@ -675,7 +1335,7 @@ const seed = async () => {
     );
 
     console.log(
-      `Seed complete: inserted ${result.upsertedCount} recipes; ${AYUSH_RECIPE_COUNT} assigned to ${AYUSH_EMAIL} and ${recipes.length - AYUSH_RECIPE_COUNT} assigned to ${SUMIT_EMAIL}.`
+      `Seed complete: inserted ${result.upsertedCount} recipes; ${allRecipes.length} assigned to ${AYUSH_USERNAME}.`
     );
   } catch (error) {
     console.error(`Seed failed: ${error.message}`);

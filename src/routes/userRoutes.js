@@ -1,9 +1,5 @@
 import { Router } from "express";
 import {
-  signupUser,
-  loginUser,
-  refreshUserToken,
-  logoutUser,
   getUserProfile,
   updateUserProfile,
   getCommentedPosts,
@@ -13,28 +9,56 @@ import {
   searchUsers,
   getPublicUserProfile,
 } from "../controllers/userController.js";
-import { verifyToken } from "../middleware/auth.js";
+import {
+  optionalVerifyFirebaseToken,
+  verifyFirebaseToken,
+  verifyFirebaseTokenRevoked,
+} from "../middleware/auth.js";
+import {
+  publicContentLimiter,
+  searchLimiter,
+  userWriteLimiter,
+} from "../middleware/tokenBucket.js";
 
 const router = Router();
 
-// Public routes
-router.post("/signup", signupUser);
-router.post("/login", loginUser);
-router.post("/refresh", refreshUserToken);
-router.post("/logout", logoutUser);
-router.get("/search", searchUsers);
-router.get("/public/:username", getPublicUserProfile);
+router.get("/search", searchLimiter, optionalVerifyFirebaseToken, searchUsers);
+router.get(
+  "/public/:username",
+  publicContentLimiter,
+  optionalVerifyFirebaseToken,
+  getPublicUserProfile
+);
 
-// Protected routes
-router.get("/profile", verifyToken, getUserProfile);
-router.put("/profile", verifyToken, updateUserProfile);
-router.get("/commented-posts", verifyToken, getCommentedPosts);
-router.get("/my-posts", verifyToken, getMyPosts);
-router.get("/saved-recipes", verifyToken, getSavedRecipes);
-router.post("/saved-recipes/:idOrSlug", verifyToken, toggleSaveRecipe);
+router.get("/profile", verifyFirebaseToken, getUserProfile);
+router.put(
+  "/profile",
+  verifyFirebaseTokenRevoked,
+  userWriteLimiter,
+  updateUserProfile
+);
+router.get(
+  "/commented-posts",
+  publicContentLimiter,
+  verifyFirebaseToken,
+  getCommentedPosts
+);
+router.get("/my-posts", publicContentLimiter, verifyFirebaseToken, getMyPosts);
+router.get(
+  "/saved-recipes",
+  publicContentLimiter,
+  verifyFirebaseToken,
+  getSavedRecipes
+);
+router.post(
+  "/saved-recipes/:idOrSlug",
+  verifyFirebaseTokenRevoked,
+  userWriteLimiter,
+  toggleSaveRecipe
+);
 
 // Protected test route
-router.get("/dashboard", verifyToken, (req, res) => {
+router.get("/dashboard", verifyFirebaseToken, (req, res) => {
   res.status(200).json({
     message: "Welcome to the user dashboard",
     user: req.user,

@@ -2,14 +2,47 @@ import { Recipe } from "../models/Recipe.js";
 import { Comment } from "../models/Comment.js";
 import { User } from "../models/User.js";
 import mongoose from "mongoose";
+import {
+  escapeRegex,
+  parsePagination,
+  queryString,
+  requireObjectBody,
+  validateRecipePayload,
+} from "../utils/requestValidation.js";
+import { sendControllerError } from "../utils/controllerError.js";
 
-const addLikeState = (recipe, userId) => {
-  const recipeData = recipe.toObject ? recipe.toObject() : recipe;
-  const likes = recipeData.likes || [];
-  delete recipeData.likes;
-
+const serializeRecipe = (recipe, userId, { detail = false } = {}) => {
+  const data = recipe.toObject ? recipe.toObject() : recipe;
+  const likes = data.likes || [];
   return {
-    ...recipeData,
+    _id: data._id,
+    title: data.title,
+    slug: data.slug,
+    description: data.description,
+    image: data.image,
+    authorName: data.authorName,
+    category: data.category,
+    tags: data.tags || [],
+    cookTime: data.cookTime,
+    prepTime: data.prepTime,
+    servings: data.servings,
+    ingredients: data.ingredients || [],
+    steps: data.steps || [],
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    ...(detail
+      ? {
+          content: data.content,
+          author: data.author
+            ? {
+                id: data.author._id,
+                username: data.author.username,
+                name: data.author.fullName || data.author.name,
+              }
+            : undefined,
+          savedCount: data.savedCount,
+        }
+      : {}),
     likesCount: likes.length,
     likedByMe: Boolean(
       userId && likes.some((likeId) => likeId.toString() === userId)
@@ -21,50 +54,54 @@ const addLikeState = (recipe, userId) => {
 // Public — list all published recipes, optional ?search= query
 export const getRecipes = async (req, res) => {
   try {
-    const { search, category, tag, page = 1, limit = 20 } = req.query;
+    const { page, limit, skip } = parsePagination(req.query);
+    const search = queryString(req.query.search, "search", { max: 80 });
+    const tag = queryString(req.query.tag, "tag", { max: 80 });
+    const category = queryString(req.query.category, "category", { max: 80 });
 
     const filter = { published: true };
-    const searchQuery = (search || tag || "").trim();
+    const searchQuery = search || tag;
 
     if (searchQuery) {
-      const strippedTag = searchQuery.replace(/^#/, "");
+      const strippedTag = escapeRegex(searchQuery.replace(/^#/, ""));
+      const escapedSearch = escapeRegex(searchQuery);
       filter.$or = [
-        { title: { $regex: searchQuery, $options: "i" } },
-        { description: { $regex: searchQuery, $options: "i" } },
-        { tags: { $regex: strippedTag || searchQuery, $options: "i" } },
-        { category: { $regex: strippedTag || searchQuery, $options: "i" } },
-        { authorName: { $regex: searchQuery, $options: "i" } },
+        { title: { $regex: escapedSearch, $options: "i" } },
+        { description: { $regex: escapedSearch, $options: "i" } },
+        { tags: { $regex: strippedTag || escapedSearch, $options: "i" } },
+        { category: { $regex: strippedTag || escapedSearch, $options: "i" } },
+        { authorName: { $regex: escapedSearch, $options: "i" } },
       ];
     }
 
-    if (category && category !== "All") {
-      filter.category = { $regex: `^${category.trim()}$`, $options: "i" };
+    const hasCategory = category && category !== "All";
+    if (hasCategory) filter.category = category;
+
+    let recipeQuery = Recipe.find(filter)
+      .select(
+        "title slug description image authorName category tags cookTime prepTime servings createdAt likes"
+      )
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    if (hasCategory) {
+      recipeQuery = recipeQuery.collation({ locale: "en", strength: 2 });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
     const [recipes, total] = await Promise.all([
-      Recipe.find(filter)
-        .select(
-          "title slug description image authorName category tags cookTime prepTime servings createdAt likes"
-        )
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit)),
+      recipeQuery,
       Recipe.countDocuments(filter),
     ]);
 
     res.status(200).json({
-      recipes: recipes.map((recipe) => addLikeState(recipe, req.user?.id)),
+      recipes: recipes.map((recipe) => serializeRecipe(recipe, req.user?.id)),
       total,
-      page: parseInt(page),
-      pages: Math.ceil(total / parseInt(limit)),
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error("getRecipes error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "getRecipes");
   }
 };
 
@@ -76,7 +113,7 @@ export const getRecipeBySlug = async (req, res) => {
 
     const recipe = await Recipe.findOne({ slug, published: true }).populate(
       "author",
-      "username name email"
+      "username name fullName"
     );
 
     if (!recipe) {
@@ -87,17 +124,11 @@ export const getRecipeBySlug = async (req, res) => {
 
     const savedCount = await User.countDocuments({ savedRecipes: recipe._id });
 
-    res.status(200).json({
-      recipe: {
-        ...addLikeState(recipe, req.user?.id),
-        savedCount,
-      },
-    });
+    const response = serializeRecipe(recipe, req.user?.id, { detail: true });
+    response.savedCount = savedCount;
+    res.status(200).json({ recipe: response });
   } catch (error) {
-    console.error("getRecipeBySlug error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "getRecipeBySlug");
   }
 };
 
@@ -141,10 +172,7 @@ export const toggleRecipeLike = async (req, res) => {
       likesCount: updatedRecipe.likes.length,
     });
   } catch (error) {
-    console.error("toggleRecipeLike error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "toggleRecipeLike");
   }
 };
 
@@ -153,6 +181,10 @@ export const toggleRecipeLike = async (req, res) => {
 export const getComments = async (req, res) => {
   try {
     const { slug } = req.params;
+    const { page, limit, skip } = parsePagination(req.query, {
+      defaultLimit: 20,
+      maxLimit: 50,
+    });
 
     const recipe = await Recipe.findOne({ slug, published: true }).select(
       "_id"
@@ -163,16 +195,38 @@ export const getComments = async (req, res) => {
         .json({ error: "Not Found", message: "Recipe not found" });
     }
 
-    const comments = await Comment.find({ recipe: recipe._id })
-      .populate("user", "username name")
-      .sort({ createdAt: -1 });
+    const [comments, total] = await Promise.all([
+      Comment.find({ recipe: recipe._id })
+        .populate("user", "username name fullName")
+        .select("text createdAt user recipe")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Comment.countDocuments({ recipe: recipe._id }),
+    ]);
 
-    res.status(200).json({ comments });
+    res.status(200).json({
+      comments: comments.map((comment) => ({
+        _id: comment._id,
+        text: comment.text,
+        createdAt: comment.createdAt,
+        recipe: comment.recipe,
+        user: comment.user
+          ? {
+              id: comment.user._id,
+              username: comment.user.username,
+              name: comment.user.fullName || comment.user.name,
+            }
+          : null,
+      })),
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    });
   } catch (error) {
-    console.error("getComments error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "getComments");
   }
 };
 
@@ -181,9 +235,13 @@ export const getComments = async (req, res) => {
 export const createComment = async (req, res) => {
   try {
     const { slug } = req.params;
+    const bodyError = requireObjectBody(req.body, ["text"]);
+    if (bodyError) {
+      return res.status(400).json({ error: "Validation", message: bodyError });
+    }
     const { text } = req.body;
 
-    if (!text || !text.trim()) {
+    if (typeof text !== "string" || !text.trim()) {
       return res
         .status(400)
         .json({ error: "Validation", message: "Comment text is required" });
@@ -205,7 +263,7 @@ export const createComment = async (req, res) => {
         .json({ error: "Not Found", message: "Recipe not found" });
     }
 
-    // req.user is populated by verifyToken middleware
+    // req.user is populated by Firebase token verification middleware
     const userId = req.user.id;
 
     const comment = new Comment({
@@ -216,15 +274,24 @@ export const createComment = async (req, res) => {
 
     await comment.save();
 
-    // Populate user info to return in response
-    const populated = await comment.populate("user", "username name");
-
-    res.status(201).json({ comment: populated });
+    const populated = await comment.populate("user", "username name fullName");
+    res.status(201).json({
+      comment: {
+        _id: populated._id,
+        text: populated.text,
+        createdAt: populated.createdAt,
+        recipe: populated.recipe,
+        user: populated.user
+          ? {
+              id: populated.user._id,
+              username: populated.user.username,
+              name: populated.user.fullName || populated.user.name,
+            }
+          : null,
+      },
+    });
   } catch (error) {
-    console.error("createComment error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "createComment");
   }
 };
 
@@ -235,10 +302,7 @@ export const getCategories = async (req, res) => {
     const categories = await Recipe.distinct("category", { published: true });
     res.status(200).json({ categories });
   } catch (error) {
-    console.error("getCategories error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "getCategories");
   }
 };
 
@@ -246,31 +310,25 @@ export const getCategories = async (req, res) => {
 // Protected — create a new recipe post
 export const createRecipe = async (req, res) => {
   try {
+    const validation = validateRecipePayload(req.body);
+    if (validation.error) {
+      return res
+        .status(400)
+        .json({ error: "Validation", message: validation.error });
+    }
     const {
       title,
       description,
-      content = "",
-      image = "",
-      category = "General",
-      tags = [],
-      cookTime = "",
-      prepTime = "",
-      servings = 4,
-      ingredients = [],
-      steps = [],
-    } = req.body;
-
-    if (!title || !title.trim()) {
-      return res
-        .status(400)
-        .json({ error: "Validation", message: "Title is required" });
-    }
-
-    if (!description || !description.trim()) {
-      return res
-        .status(400)
-        .json({ error: "Validation", message: "Description is required" });
-    }
+      content,
+      image,
+      category,
+      tags,
+      cookTime,
+      prepTime,
+      servings,
+      ingredients,
+      steps,
+    } = validation.value;
 
     // Generate base slug
     let slug = title
@@ -292,41 +350,29 @@ export const createRecipe = async (req, res) => {
 
     // Fetch author details
     const userId = req.user.id;
-    const user = await User.findById(userId).select("username name");
+    const user = await User.findById(userId).select("username name fullName");
     const authorName =
-      user?.name && user.name.trim()
-        ? user.name.trim()
-        : user?.username || "Chef";
-
-    // Format tags if passed as string or array
-    const formattedTags = Array.isArray(tags)
-      ? tags.map((t) => t.trim()).filter(Boolean)
-      : typeof tags === "string"
-        ? tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : [];
+      user?.fullName && user.fullName.trim()
+        ? user.fullName.trim()
+        : user?.name && user.name.trim()
+          ? user.name.trim()
+          : user?.username || "Chef";
 
     const recipe = new Recipe({
-      title: title.trim(),
+      title,
       slug,
-      description: description.trim(),
-      content: content.trim(),
-      image: image.trim(),
+      description,
+      content,
+      image,
       author: userId,
       authorName,
-      category: category.trim() || "General",
-      tags: formattedTags,
-      cookTime: cookTime.trim(),
-      prepTime: prepTime.trim(),
-      servings: Number(servings) || 4,
-      ingredients: Array.isArray(ingredients) ? ingredients : [],
-      steps: Array.isArray(steps)
-        ? steps
-            .map((s) => (typeof s === "string" ? s.trim() : s))
-            .filter(Boolean)
-        : [],
+      category: category || "General",
+      tags,
+      cookTime,
+      prepTime,
+      servings,
+      ingredients,
+      steps,
       published: true,
     });
 
@@ -334,13 +380,10 @@ export const createRecipe = async (req, res) => {
 
     res.status(201).json({
       message: "Recipe created successfully",
-      recipe,
+      recipe: serializeRecipe(recipe, req.user.id, { detail: true }),
     });
   } catch (error) {
-    console.error("createRecipe error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "createRecipe");
   }
 };
 
@@ -368,80 +411,22 @@ export const updateRecipe = async (req, res) => {
       });
     }
 
-    const {
-      title,
-      description,
-      content,
-      image,
-      category,
-      tags,
-      cookTime,
-      prepTime,
-      servings,
-      ingredients,
-      steps,
-    } = req.body;
-
-    if (title !== undefined) {
-      if (!title.trim()) {
-        return res
-          .status(400)
-          .json({ error: "Validation", message: "Title cannot be empty" });
-      }
-      recipe.title = title.trim();
+    const validation = validateRecipePayload(req.body, { partial: true });
+    if (validation.error) {
+      return res
+        .status(400)
+        .json({ error: "Validation", message: validation.error });
     }
-
-    if (description !== undefined) {
-      if (!description.trim()) {
-        return res.status(400).json({
-          error: "Validation",
-          message: "Description cannot be empty",
-        });
-      }
-      recipe.description = description.trim();
-    }
-
-    if (content !== undefined) recipe.content = content.trim();
-    if (image !== undefined) recipe.image = image.trim();
-    if (category !== undefined) recipe.category = category.trim() || "General";
-    if (cookTime !== undefined) recipe.cookTime = cookTime.trim();
-    if (prepTime !== undefined) recipe.prepTime = prepTime.trim();
-    if (servings !== undefined) recipe.servings = Number(servings) || 4;
-
-    if (tags !== undefined) {
-      recipe.tags = Array.isArray(tags)
-        ? tags.map((t) => t.trim()).filter(Boolean)
-        : typeof tags === "string"
-          ? tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean)
-          : [];
-    }
-
-    if (ingredients !== undefined) {
-      recipe.ingredients = Array.isArray(ingredients) ? ingredients : [];
-    }
-
-    if (steps !== undefined) {
-      recipe.steps = Array.isArray(steps)
-        ? steps
-            .map((s) => (typeof s === "string" ? s.trim() : s))
-            .filter(Boolean)
-        : [];
-    }
+    Object.assign(recipe, validation.value);
 
     await recipe.save();
 
     res.status(200).json({
       message: "Recipe updated successfully",
-      recipe,
+      recipe: serializeRecipe(recipe, req.user.id, { detail: true }),
     });
   } catch (error) {
-    console.error("updateRecipe error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "updateRecipe");
   }
 };
 
@@ -480,10 +465,7 @@ export const deleteRecipe = async (req, res) => {
       recipeId: id,
     });
   } catch (error) {
-    console.error("deleteRecipe error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "deleteRecipe");
   }
 };
 
@@ -491,7 +473,10 @@ export const deleteRecipe = async (req, res) => {
 // Public — top recipes ranked by database-backed likes
 export const getTrendingRecipes = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 9;
+    const { limit } = parsePagination(req.query, {
+      defaultLimit: 9,
+      maxLimit: 20,
+    });
 
     const recipes = await Recipe.aggregate([
       { $match: { published: true } },
@@ -510,8 +495,23 @@ export const getTrendingRecipes = async (req, res) => {
       },
       {
         $project: {
-          likes: 0,
-          content: 0,
+          _id: 1,
+          title: 1,
+          slug: 1,
+          description: 1,
+          image: 1,
+          authorName: 1,
+          category: 1,
+          tags: 1,
+          cookTime: 1,
+          prepTime: 1,
+          servings: 1,
+          ingredients: 1,
+          steps: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          likesCount: 1,
+          likedByMe: 1,
         },
       },
       {
@@ -527,9 +527,6 @@ export const getTrendingRecipes = async (req, res) => {
 
     res.status(200).json({ recipes });
   } catch (error) {
-    console.error("getTrendingRecipes error:", error);
-    res
-      .status(500)
-      .json({ error: "Internal server error", message: error.message });
+    return sendControllerError(req, res, error, "getTrendingRecipes");
   }
 };
