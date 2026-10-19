@@ -218,7 +218,7 @@ export const queryString = (
 
 export const parsePagination = (
   query,
-  { defaultLimit = 10, maxLimit = 50, maxPage = 1_000 } = {}
+  { defaultLimit = 12, maxLimit = 50, maxPage = 1_000 } = {}
 ) => {
   const parseInteger = (value, fallback, field, maximum) => {
     if (value === undefined) return fallback;

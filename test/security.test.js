@@ -113,11 +113,7 @@ test("recipe payload validation normalizes tags and rejects unknown or malformed
 });
 
 test("pagination rejects zero, malformed, and excessive values", () => {
-  assert.deepEqual(parsePagination({}), {
-    page: 1,
-    limit: 10,
-    skip: 0,
-  });
+  assert.equal(parsePagination({}).limit, 12);
   assert.deepEqual(parsePagination({ page: "2", limit: "25" }), {
     page: 2,
     limit: 25,

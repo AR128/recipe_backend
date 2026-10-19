@@ -182,7 +182,7 @@ export const getComments = async (req, res) => {
   try {
     const { slug } = req.params;
     const { page, limit, skip } = parsePagination(req.query, {
-      defaultLimit: 10,
+      defaultLimit: 12,
       maxLimit: 50,
     });
 

@@ -110,7 +110,7 @@ proxy hop.
   image data only, with a 5 MiB decoded/processed size ceiling, 8,192-pixel
   maximum dimension, and 20-megapixel maximum area. Recipe image references
   may be external URLs, but must use HTTPS.
-- List endpoints default to 10 results per page and cap page size at 50;
+- List endpoints default to 12 results per page and cap page size at 50;
   page numbers are bounded to 1,000. Search terms are length-limited and
   escaped so user input is treated literally. Writes reject unknown fields
   and validate field types, lengths, and collection sizes server-side.
