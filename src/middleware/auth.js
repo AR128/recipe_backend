@@ -1,6 +1,7 @@
 import { getAuth } from "firebase-admin/auth";
 import { User } from "../models/User.js";
 import { Recipe } from "../models/Recipe.js";
+import { UserAccess } from "../models/UserAccess.js";
 import { firebaseAdminEmail, firebaseApp } from "../config/firebase.js";
 import {
   findAvailableUsername,
@@ -84,8 +85,36 @@ const getOrCreateUser = async (firebaseUser) => {
   return user;
 };
 
-const attachFirebaseUser = async (decodedToken, req, next) => {
+const attachFirebaseUser = async (decodedToken, req, res, next) => {
   try {
+    const accessFilter = [{ firebaseUid: decodedToken.uid }];
+    if (decodedToken.email_verified && decodedToken.email) {
+      accessFilter.push({ email: decodedToken.email.toLowerCase() });
+    }
+    const access = await UserAccess.findOne({
+      $or: accessFilter,
+    }).select("status firebaseUid");
+
+    if (access && access.status !== "approved") {
+      const code =
+        access.status === "requested"
+          ? "ACCESS_REQUEST_PENDING"
+          : access.status === "denied"
+            ? "ACCESS_REQUEST_DENIED"
+            : "ACCOUNT_REMOVED";
+      const message =
+        access.status === "requested"
+          ? "Your request to rejoin the platform is awaiting admin review."
+          : access.status === "denied"
+            ? "Your request to rejoin the platform was not approved."
+            : "Your account has been removed. You can request access to rejoin.";
+      return res.status(403).json({ error: "Forbidden", code, message });
+    }
+    if (access && access.firebaseUid !== decodedToken.uid) {
+      access.firebaseUid = decodedToken.uid;
+      await access.save();
+    }
+
     const user = await getOrCreateUser(decodedToken);
     req.user = {
       id: user._id.toString(),
@@ -145,7 +174,7 @@ const verifyFirebaseTokenWithRevocation = async (
     });
   }
 
-  await attachFirebaseUser(decodedToken, req, next);
+  await attachFirebaseUser(decodedToken, req, res, next);
 };
 
 export const verifyFirebaseToken = (req, res, next) =>
@@ -173,7 +202,41 @@ export const optionalVerifyFirebaseToken = async (req, res, next) => {
     });
   }
 
-  await attachFirebaseUser(decodedToken, req, next);
+  await attachFirebaseUser(decodedToken, req, res, next);
+};
+
+export const verifyFirebaseIdentity = async (req, res, next) => {
+  const token = getBearerToken(req);
+  if (!token) {
+    return res
+      .status(401)
+      .json({ error: "Unauthorized", message: "No Firebase token provided" });
+  }
+
+  let decodedToken;
+  try {
+    decodedToken = await firebaseAuth.verifyIdToken(token);
+  } catch (error) {
+    if (!INVALID_TOKEN_CODES.has(error.code)) return next(error);
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "Invalid or expired Firebase token",
+    });
+  }
+
+  if (
+    !isGoogleSignIn(decodedToken) ||
+    !decodedToken.email ||
+    !decodedToken.email_verified
+  ) {
+    return res.status(403).json({
+      error: "Forbidden",
+      message: "A verified Google account is required.",
+    });
+  }
+
+  req.firebaseIdentity = decodedToken;
+  next();
 };
 
 export const verifyAdminFirebaseToken = async (req, res, next) => {

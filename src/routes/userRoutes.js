@@ -9,8 +9,10 @@ import {
   searchUsers,
   getPublicUserProfile,
 } from "../controllers/userController.js";
+import { requestPlatformAccess } from "../controllers/accessController.js";
 import {
   optionalVerifyFirebaseToken,
+  verifyFirebaseIdentity,
   verifyFirebaseToken,
   verifyFirebaseTokenRevoked,
 } from "../middleware/auth.js";
@@ -22,6 +24,12 @@ import {
 
 const router = Router();
 
+router.post(
+  "/access-request",
+  verifyFirebaseIdentity,
+  userWriteLimiter,
+  requestPlatformAccess
+);
 router.get("/search", searchLimiter, optionalVerifyFirebaseToken, searchUsers);
 router.get(
   "/public/:username",

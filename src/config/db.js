@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { User } from "../models/User.js";
 import { Recipe } from "../models/Recipe.js";
 import { Comment } from "../models/Comment.js";
+import { UserAccess } from "../models/UserAccess.js";
 
 const connectDB = async () => {
   try {
@@ -11,6 +12,7 @@ const connectDB = async () => {
       User.createIndexes(),
       Recipe.createIndexes(),
       Comment.createIndexes(),
+      UserAccess.createIndexes(),
     ]);
     console.log("Application indexes are ready.");
   } catch (error) {
