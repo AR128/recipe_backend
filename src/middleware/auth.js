@@ -2,7 +2,7 @@ import { getAuth } from "firebase-admin/auth";
 import { User } from "../models/User.js";
 import { Recipe } from "../models/Recipe.js";
 import { UserAccess } from "../models/UserAccess.js";
-import { firebaseAdminEmail, firebaseApp } from "../config/firebase.js";
+import { firebaseAdminEmails, firebaseApp } from "../config/firebase.js";
 import {
   findAvailableUsername,
   isDuplicateUsernameError,
@@ -262,7 +262,7 @@ export const verifyAdminFirebaseToken = async (req, res, next) => {
     !isGoogleSignIn(decodedToken) ||
     !decodedToken.email ||
     !decodedToken.email_verified ||
-    decodedToken.email.toLowerCase() !== firebaseAdminEmail
+    !firebaseAdminEmails.includes(decodedToken.email.toLowerCase())
   ) {
     return res.status(403).json({
       error: "Forbidden",

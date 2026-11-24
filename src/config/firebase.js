@@ -4,7 +4,10 @@ import { resolve } from "node:path";
 
 const projectId =
   process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+const adminEmails = (process.env.ADMIN_EMAIL || "")
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
 const serviceAccountClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -16,7 +19,7 @@ if (!projectId) {
   );
 }
 
-if (!adminEmail) {
+if (adminEmails.length === 0) {
   throw new Error("ADMIN_EMAIL must be configured for Firebase admin access.");
 }
 
@@ -81,4 +84,4 @@ export const firebaseApp = initializeApp({
   projectId,
   ...(serviceAccount ? { credential: cert(serviceAccount) } : {}),
 });
-export const firebaseAdminEmail = adminEmail;
+export const firebaseAdminEmails = adminEmails;
