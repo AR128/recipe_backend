@@ -534,62 +534,72 @@ export const getSavedRecipes = async (req, res) => {
   try {
     const userId = req.user.id;
     const { page, limit, skip } = parsePagination(req.query);
-    const [result] = await User.aggregate([
-      { $match: { _id: new mongoose.Types.ObjectId(userId) } },
-      {
-        $project: {
-          savedRecipeIds: { $ifNull: ["$savedRecipes", []] },
+    const [result, likedTotal] = await Promise.all([
+      User.aggregate([
+        { $match: { _id: new mongoose.Types.ObjectId(userId) } },
+        {
+          $project: {
+            savedRecipeIds: { $ifNull: ["$savedRecipes", []] },
+          },
         },
-      },
-      {
-        $lookup: {
-          from: "recipes",
-          let: { ids: "$savedRecipeIds", userId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                published: true,
-                $expr: {
-                  $or: [
-                    { $in: ["$_id", "$$ids"] },
+        {
+          $lookup: {
+            from: "recipes",
+            let: { ids: "$savedRecipeIds", userId: "$_id" },
+            pipeline: [
+              {
+                $match: {
+                  published: true,
+                  $expr: {
+                    $or: [
+                      { $in: ["$_id", "$$ids"] },
+                      {
+                        $in: ["$$userId", { $ifNull: ["$likes", []] }],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $addFields: {
+                  isBookmarked: { $in: ["$_id", "$$ids"] },
+                  savedOrder: { $indexOfArray: ["$$ids", "$_id"] },
+                  likesCount: { $size: { $ifNull: ["$likes", []] } },
+                  likedByMe: {
+                    $in: ["$$userId", { $ifNull: ["$likes", []] }],
+                  },
+                },
+              },
+              { $sort: { isBookmarked: -1, savedOrder: 1, createdAt: -1 } },
+              {
+                $facet: {
+                  metadata: [{ $count: "total" }],
+                  likedMetadata: [
+                    { $match: { likedByMe: true } },
+                    { $count: "total" },
+                  ],
+                  recipes: [
+                    { $skip: skip },
+                    { $limit: limit },
                     {
-                      $in: ["$$userId", { $ifNull: ["$likes", []] }],
+                      $project: {
+                        ...publicRecipeProjection,
+                        likesCount: 1,
+                        likedByMe: 1,
+                      },
                     },
                   ],
                 },
               },
-            },
-            {
-              $addFields: {
-                isBookmarked: { $in: ["$_id", "$$ids"] },
-                savedOrder: { $indexOfArray: ["$$ids", "$_id"] },
-                likesCount: { $size: { $ifNull: ["$likes", []] } },
-                likedByMe: {
-                  $in: ["$$userId", { $ifNull: ["$likes", []] }],
-                },
-              },
-            },
-            { $sort: { isBookmarked: -1, savedOrder: 1, createdAt: -1 } },
-            {
-              $facet: {
-                metadata: [{ $count: "total" }],
-                recipes: [
-                  { $skip: skip },
-                  { $limit: limit },
-                  {
-                    $project: {
-                      ...publicRecipeProjection,
-                      likesCount: 1,
-                      likedByMe: 1,
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-          as: "savedRecipes",
+            ],
+            as: "savedRecipes",
+          },
         },
-      },
+      ]),
+      Recipe.countDocuments({
+        published: true,
+        likes: new mongoose.Types.ObjectId(userId),
+      }),
     ]);
     const savedResult = result?.savedRecipes?.[0];
     const recipes = savedResult?.recipes || [];
@@ -597,6 +607,7 @@ export const getSavedRecipes = async (req, res) => {
     res.status(200).json({
       recipes,
       total,
+      likedTotal,
       page,
       limit,
       pages: Math.ceil(total / limit),
