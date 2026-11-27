@@ -476,7 +476,7 @@ export const getPublicUserProfile = async (req, res) => {
         .json({ error: "Not Found", message: "User not found" });
     }
 
-    const [recipes, total, saveStats] = await Promise.all([
+    const [recipes, total, saveStats, currentUser] = await Promise.all([
       Recipe.aggregate([
         {
           $match: {
@@ -505,7 +505,13 @@ export const getPublicUserProfile = async (req, res) => {
       ]),
       Recipe.countDocuments({ author: user._id, published: true }),
       getAuthorSaveStats(user._id, true),
+      req.user?.id
+        ? User.findById(req.user.id).select("savedRecipes").lean()
+        : null,
     ]);
+    const savedRecipeIds = new Set(
+      (currentUser?.savedRecipes || []).map((id) => id.toString())
+    );
 
     res.status(200).json({
       user: {
@@ -517,7 +523,10 @@ export const getPublicUserProfile = async (req, res) => {
         totalSavesReceived: saveStats.totalSavesReceived,
         uniqueUsersCount: saveStats.uniqueUsersCount,
       },
-      recipes,
+      recipes: recipes.map((recipe) => ({
+        ...recipe,
+        isBookmarked: savedRecipeIds.has(recipe._id.toString()),
+      })),
       total,
       page,
       limit,
@@ -586,6 +595,7 @@ export const getSavedRecipes = async (req, res) => {
                         ...publicRecipeProjection,
                         likesCount: 1,
                         likedByMe: 1,
+                        isBookmarked: 1,
                       },
                     },
                   ],

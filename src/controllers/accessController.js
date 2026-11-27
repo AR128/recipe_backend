@@ -38,6 +38,7 @@ export const requestPlatformAccess = async (req, res) => {
 
     access.status = "requested";
     access.requestedAt = new Date();
+    access.removedAt = undefined;
     await access.save();
 
     res.status(200).json({

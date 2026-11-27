@@ -8,6 +8,7 @@ import {
   escapeRegex,
   parsePagination,
   queryString,
+  requireObjectBody,
 } from "../utils/requestValidation.js";
 
 const getSearchFilter = (search, fields) => {
@@ -150,6 +151,88 @@ export const getAdminUsers = async (req, res) => {
   }
 };
 
+export const getAdminAccessRequests = async (req, res) => {
+  try {
+    const pagination = parsePagination(req.query, {
+      defaultLimit: 20,
+      maxLimit: 50,
+    });
+    const search = queryString(req.query.search, "search", { max: 100 });
+    const filter = {
+      status: "requested",
+      ...getSearchFilter(search, ["displayName", "email"]),
+    };
+    const [requests, total] = await Promise.all([
+      UserAccess.find(filter)
+        .select("firebaseUid email displayName requestedAt")
+        .sort({ requestedAt: -1, _id: -1 })
+        .skip(pagination.skip)
+        .limit(pagination.limit)
+        .lean(),
+      UserAccess.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      requests,
+      total,
+      page: pagination.page,
+      pages: Math.max(1, Math.ceil(total / pagination.limit)),
+    });
+  } catch (error) {
+    return sendControllerError(req, res, error, "getAdminAccessRequests");
+  }
+};
+
+export const reviewAdminAccessRequest = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        error: "Validation",
+        message: "Access request ID is invalid.",
+      });
+    }
+
+    const bodyError = requireObjectBody(req.body, ["action"]);
+    if (bodyError) {
+      return res.status(400).json({ error: "Validation", message: bodyError });
+    }
+    if (!["approve", "decline"].includes(req.body.action)) {
+      return res.status(400).json({
+        error: "Validation",
+        message: "Action must be either approve or decline.",
+      });
+    }
+
+    const status = req.body.action === "approve" ? "approved" : "denied";
+    const request = await UserAccess.findOneAndUpdate(
+      { _id: req.params.id, status: "requested" },
+      { $set: { status } },
+      { new: true, runValidators: true }
+    ).select("email displayName status");
+
+    if (!request) {
+      const exists = await UserAccess.exists({ _id: req.params.id });
+      if (!exists) {
+        return res.status(404).json({
+          error: "Not Found",
+          message: "Access request not found.",
+        });
+      }
+      return res.status(409).json({
+        error: "Conflict",
+        message: "This access request has already been reviewed.",
+      });
+    }
+
+    res.status(200).json({
+      message: `Access request ${req.body.action === "approve" ? "approved" : "declined"}.`,
+      request,
+    });
+  } catch (error) {
+    return sendControllerError(req, res, error, "reviewAdminAccessRequest");
+  }
+};
+
 export const removeAdminUser = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) {
@@ -215,4 +298,3 @@ export const removeAdminUser = async (req, res) => {
     return sendControllerError(req, res, error, "removeAdminUser");
   }
 };
-

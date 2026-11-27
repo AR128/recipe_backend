@@ -11,7 +11,17 @@ import {
 } from "../utils/requestValidation.js";
 import { sendControllerError } from "../utils/controllerError.js";
 
-const serializeRecipe = (recipe, userId, { detail = false } = {}) => {
+const getSavedRecipeIds = async (userId) => {
+  if (!userId) return new Set();
+  const user = await User.findById(userId).select("savedRecipes").lean();
+  return new Set((user?.savedRecipes || []).map((id) => id.toString()));
+};
+
+const serializeRecipe = (
+  recipe,
+  userId,
+  { detail = false, savedRecipeIds = new Set() } = {}
+) => {
   const data = recipe.toObject ? recipe.toObject() : recipe;
   const likes = data.likes || [];
   return {
@@ -47,6 +57,7 @@ const serializeRecipe = (recipe, userId, { detail = false } = {}) => {
     likedByMe: Boolean(
       userId && likes.some((likeId) => likeId.toString() === userId)
     ),
+    isBookmarked: savedRecipeIds.has(data._id.toString()),
   };
 };
 
@@ -88,13 +99,16 @@ export const getRecipes = async (req, res) => {
       recipeQuery = recipeQuery.collation({ locale: "en", strength: 2 });
     }
 
-    const [recipes, total] = await Promise.all([
+    const [recipes, total, savedRecipeIds] = await Promise.all([
       recipeQuery,
       Recipe.countDocuments(filter),
+      getSavedRecipeIds(req.user?.id),
     ]);
 
     res.status(200).json({
-      recipes: recipes.map((recipe) => serializeRecipe(recipe, req.user?.id)),
+      recipes: recipes.map((recipe) =>
+        serializeRecipe(recipe, req.user?.id, { savedRecipeIds })
+      ),
       total,
       page,
       limit,
@@ -122,9 +136,15 @@ export const getRecipeBySlug = async (req, res) => {
         .json({ error: "Not Found", message: "Recipe not found" });
     }
 
-    const savedCount = await User.countDocuments({ savedRecipes: recipe._id });
+    const [savedCount, savedRecipeIds] = await Promise.all([
+      User.countDocuments({ savedRecipes: recipe._id }),
+      getSavedRecipeIds(req.user?.id),
+    ]);
 
-    const response = serializeRecipe(recipe, req.user?.id, { detail: true });
+    const response = serializeRecipe(recipe, req.user?.id, {
+      detail: true,
+      savedRecipeIds,
+    });
     response.savedCount = savedCount;
     res.status(200).json({ recipe: response });
   } catch (error) {
@@ -478,54 +498,62 @@ export const getTrendingRecipes = async (req, res) => {
       maxLimit: 20,
     });
 
-    const recipes = await Recipe.aggregate([
-      { $match: { published: true } },
-      {
-        $addFields: {
-          likesCount: { $size: { $ifNull: ["$likes", []] } },
-          likedByMe: req.user?.id
-            ? {
-                $in: [
-                  new mongoose.Types.ObjectId(req.user.id),
-                  { $ifNull: ["$likes", []] },
-                ],
-              }
-            : false,
+    const [recipes, savedRecipeIds] = await Promise.all([
+      Recipe.aggregate([
+        { $match: { published: true } },
+        {
+          $addFields: {
+            likesCount: { $size: { $ifNull: ["$likes", []] } },
+            likedByMe: req.user?.id
+              ? {
+                  $in: [
+                    new mongoose.Types.ObjectId(req.user.id),
+                    { $ifNull: ["$likes", []] },
+                  ],
+                }
+              : false,
+          },
         },
-      },
-      {
-        $project: {
-          _id: 1,
-          title: 1,
-          slug: 1,
-          description: 1,
-          image: 1,
-          authorName: 1,
-          category: 1,
-          tags: 1,
-          cookTime: 1,
-          prepTime: 1,
-          servings: 1,
-          ingredients: 1,
-          steps: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          likesCount: 1,
-          likedByMe: 1,
+        {
+          $project: {
+            _id: 1,
+            title: 1,
+            slug: 1,
+            description: 1,
+            image: 1,
+            authorName: 1,
+            category: 1,
+            tags: 1,
+            cookTime: 1,
+            prepTime: 1,
+            servings: 1,
+            ingredients: 1,
+            steps: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            likesCount: 1,
+            likedByMe: 1,
+          },
         },
-      },
-      {
-        $sort: {
-          likesCount: -1,
-          createdAt: -1,
+        {
+          $sort: {
+            likesCount: -1,
+            createdAt: -1,
+          },
         },
-      },
-      {
-        $limit: limit,
-      },
+        {
+          $limit: limit,
+        },
+      ]),
+      getSavedRecipeIds(req.user?.id),
     ]);
 
-    res.status(200).json({ recipes });
+    res.status(200).json({
+      recipes: recipes.map((recipe) => ({
+        ...recipe,
+        isBookmarked: savedRecipeIds.has(recipe._id.toString()),
+      })),
+    });
   } catch (error) {
     return sendControllerError(req, res, error, "getTrendingRecipes");
   }
